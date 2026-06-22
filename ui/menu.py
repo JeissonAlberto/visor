@@ -1,28 +1,229 @@
-from ui.menu_monitoreo import iniciar_monitoreo
-from ui.menu_web import menu_servicios_web
-from ui.menu_internet import menu_test_internet
+"""
+ui/menu.py — Menú principal de Visor.
+"""
+
+from datetime import datetime
+from core.colores import banner, separador, titulo, info, ok, fallo, warn, dim, resaltar, tabla_estado
+from config.settings import INTERVALO_MONITOREO
+
 
 def menu_principal():
+    banner()
     while True:
-        print("\n==============================================")
-        print("   MINI SISTEMA DE MONITOREO DE RED - V.1.0")
-        print("==============================================")
-        print("1. Iniciar monitoreo de red y servicios")
-        print("2. Escanear servicios web")
-        print("3. Test de calidad de internet")
-        print("4. Salir del sistema")
-        print("==============================================")
+        print(f"\n  {titulo('MENÚ PRINCIPAL')}")
+        separador()
+        print(f"  {resaltar('1.')} 📡  Monitoreo continuo de red")
+        print(f"  {resaltar('2.')} 🔍  Escaneo único de dispositivos")
+        print(f"  {resaltar('3.')} 🌐  Verificar servicios web")
+        print(f"  {resaltar('4.')} 📶  Test de calidad de internet")
+        print(f"  {resaltar('5.')} 🗺️   Escanear rango IP")
+        print(f"  {resaltar('6.')} 📋  Ver último reporte")
+        print(f"  {resaltar('7.')} ⚙️   Configuración rápida")
+        print(f"  {resaltar('0.')} ❌  Salir")
+        separador()
 
-        opcion = input("Selecciona una opción: ")
+        opcion = input(f"\n  {info('Elige una opción:')} ").strip()
 
         if opcion == "1":
-            iniciar_monitoreo()
+            _menu_monitoreo()
         elif opcion == "2":
-            menu_servicios_web()
+            _escaneo_unico()
         elif opcion == "3":
-            menu_test_internet()
+            _menu_web()
         elif opcion == "4":
-            print("Saliendo del sistema...")
+            _menu_internet()
+        elif opcion == "5":
+            _menu_rango()
+        elif opcion == "6":
+            _ver_reporte()
+        elif opcion == "7":
+            _configuracion_rapida()
+        elif opcion == "0":
+            print(f"\n  {dim('Hasta luego — Visor by Jasol Group')}\n")
             break
         else:
-            print("Opción inválida. Intenta nuevamente.")
+            print(f"\n  {warn('Opción inválida. Intenta de nuevo.')}")
+
+
+# ── Monitoreo continuo ────────────────────────────────────────────────────
+
+def _menu_monitoreo():
+    from core.monitor import monitoreo_continuo
+    separador("Monitoreo continuo")
+    print(f"\n  {info(f'Intervalo: {INTERVALO_MONITOREO}s   ·   Ctrl+C para detener')}\n")
+    try:
+        monitoreo_continuo(intervalo=INTERVALO_MONITOREO)
+    except KeyboardInterrupt:
+        pass
+
+
+# ── Escaneo único ─────────────────────────────────────────────────────────
+
+def _escaneo_unico():
+    from core.monitor import escanear_dispositivos
+    from utils.reportes import guardar_reporte
+
+    separador("Escaneo de dispositivos")
+    print(f"\n  {info('Escaneando...')}\n")
+
+    resultados = escanear_dispositivos()
+
+    up   = [r for r in resultados if r["online"]]
+    down = [r for r in resultados if not r["online"]]
+
+    tabla_estado(resultados)
+    separador()
+    print(f"  {ok(f'{len(up)} en línea')}   {fallo(f'{len(down)} caídos')}   {dim(f'Total: {len(resultados)}')}")
+
+    # Guardar reporte
+    ruta = guardar_reporte({
+        "ts":          datetime.now().isoformat(),
+        "dispositivos": resultados,
+    })
+    if ruta:
+        print(f"\n  {dim(f'Reporte guardado: {ruta.name}')}")
+
+    input(f"\n  {dim('Enter para continuar...')}")
+
+
+# ── Web ───────────────────────────────────────────────────────────────────
+
+def _menu_web():
+    from core.web_service import escanear_servicios_web
+    from utils.reportes import guardar_reporte
+
+    separador("Servicios web")
+    print(f"\n  {info('Verificando servicios...')}\n")
+
+    resultados = escanear_servicios_web()
+
+    # Mostrar tabla
+    ancho = max((len(r.get("nombre", "")) for r in resultados), default=15) + 2
+    print(f"  {'SERVICIO':<{ancho}}  {'URL':<40}  {'ESTADO':<10}  {'HTTP':>6}  {'MS':>8}")
+    print(f"  {'─'*(ancho+70)}")
+
+    for r in resultados:
+        estado_s = f"{ok('OK')}" if r["online"] else f"{fallo('DOWN')}"
+        http_s   = str(r.get("http") or "—")
+        lat_s    = f"{r['latencia']} ms" if r.get("latencia") else "—"
+        url_corta = r.get("url", "")[:38]
+        print(f"  {r.get('nombre',''):<{ancho}}  {url_corta:<40}  {estado_s:<20}  {http_s:>6}  {lat_s:>8}")
+
+    up = sum(1 for r in resultados if r["online"])
+    print(f"\n  {ok(f'{up}/{len(resultados)} servicios activos')}")
+
+    ruta = guardar_reporte({"ts": datetime.now().isoformat(), "web": resultados})
+    if ruta:
+        print(f"  {dim(f'Reporte: {ruta.name}')}")
+
+    input(f"\n  {dim('Enter para continuar...')}")
+
+
+# ── Internet ──────────────────────────────────────────────────────────────
+
+def _menu_internet():
+    from core.test_internet import test_internet
+    from utils.reportes import guardar_reporte
+
+    separador("Test de calidad de internet")
+    print(f"\n  {info('Midiendo latencia y pérdida de paquetes...')}\n")
+
+    r = test_internet()
+
+    calidad = r["calidad"]
+    color_cal = ok if calidad in ("EXCELENTE","BUENA") else (warn if calidad == "REGULAR" else fallo)
+
+    separador()
+    print(f"  Calidad:              {color_cal(calidad)}")
+    print(f"  Latencia promedio:    {r['lat_avg']} ms" if r['lat_avg'] else "  Latencia promedio:    —")
+    print(f"  Latencia min / max:   {r['lat_min']} ms / {r['lat_max']} ms" if r['lat_min'] else "")
+    print(f"  Jitter:               {r['jitter']} ms" if r['jitter'] is not None else "  Jitter:               —")
+    print(f"  Pérdida de paquetes:  {r['perdida']}%")
+    print(f"  Pings OK / Total:     {r['pings_ok']} / {r['total_pings']}")
+
+    separador()
+    for h in r.get("hosts", []):
+        lats = h.get("lats", [])
+        avg  = round(sum(lats)/len(lats), 1) if lats else None
+        s    = ok(f"{avg} ms") if lats else fallo("Sin respuesta")
+        print(f"  {h['nombre']:<15} ({h['host']})   {s}")
+
+    ruta = guardar_reporte({"ts": datetime.now().isoformat(), "internet": r})
+    if ruta:
+        print(f"\n  {dim(f'Reporte: {ruta.name}')}")
+
+    input(f"\n  {dim('Enter para continuar...')}")
+
+
+# ── Escaneo de rango ──────────────────────────────────────────────────────
+
+def _menu_rango():
+    from core.red import escanear_rango
+    from config.device import RANGO_SCAN
+
+    separador("Escanear rango IP")
+    print(f"\n  {info(f'Rango configurado: {RANGO_SCAN}')}")
+    rango = input(f"  Introduce el rango CIDR (Enter = {RANGO_SCAN}): ").strip() or RANGO_SCAN
+
+    print(f"\n  {info(f'Escaneando {rango}... (puede tardar unos segundos)')}\n")
+    resultados = escanear_rango(rango)
+
+    activos = [r for r in resultados if r["activo"]]
+    print(f"  {'IP':<18} {'ESTADO':<10} {'LATENCIA':>10}  HOSTNAME")
+    print(f"  {'─'*60}")
+    for r in activos:
+        lat_s = f"{r['latencia']} ms" if r['latencia'] else "—"
+        host  = r.get("hostname") or ""
+        print(f"  {r['ip']:<18} {ok('UP'):<20} {lat_s:>10}  {dim(host)}")
+
+    if not activos:
+        print(f"  {warn('No se encontraron hosts activos en el rango.')}")
+
+    print(f"\n  {resaltar(f'{len(activos)} host(s) activos de {len(resultados)} IPs escaneadas')}")
+    input(f"\n  {dim('Enter para continuar...')}")
+
+
+# ── Reporte ───────────────────────────────────────────────────────────────
+
+def _ver_reporte():
+    from utils.reportes import leer_ultimo_reporte
+    separador("Último reporte")
+    print(f"\n{leer_ultimo_reporte()}\n")
+    input(f"  {dim('Enter para continuar...')}")
+
+
+# ── Config rápida ─────────────────────────────────────────────────────────
+
+def _configuracion_rapida():
+    separador("Configuración rápida")
+    print(f"""
+  {info('Archivos de configuración:')}
+
+  {resaltar('config/device.py')}
+    → Lista de dispositivos a monitorear (IP, MAC, nombre, grupo)
+    → Servicios web a verificar
+    → Rango IP para escaneo automático
+
+  {resaltar('config/smtp_config.py')}
+    → Credenciales de correo para alertas automáticas
+
+  {resaltar('config/settings.py')}
+    → Intervalo de monitoreo, timeouts, reportes
+
+  {dim('Edita estos archivos con tu editor de texto favorito.')}
+""")
+    input(f"  {dim('Enter para volver...')}")
+
+
+# ── Ejecución directa (flags CLI) ────────────────────────────────────────
+
+def run_direct(args):
+    banner()
+    if args.scan:
+        _escaneo_unico()
+    if args.web:
+        _menu_web()
+    if args.internet:
+        _menu_internet()
+    if args.report:
+        _ver_reporte()

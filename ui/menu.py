@@ -134,7 +134,7 @@ def _menu_web():
 # ── 4. Test de internet ───────────────────────────────────────────────────
 
 def _menu_internet():
-    from core.test_internet import medir_calidad
+    from core.test_internet import test_internet as medir_calidad
     from utils.reportes import guardar_reporte
 
     separador("Test de calidad de internet")

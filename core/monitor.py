@@ -121,7 +121,8 @@ def monitoreo_continuo(intervalo: int = 60, callback=None):
             callback(resultados)
 
         if caidos:
-            print(f"\n  {dim(f'Dispositivos caídos: {len(caidos)} — {', '.join(caidos)}')}")
+            caidos_str = ', '.join(caidos)
+            print(f"\n  {dim(f'Dispositivos caidos: {len(caidos)} -- {caidos_str}')}")
 
         print(f"\n  {dim(f'Próximo ciclo en {intervalo}s... (Ctrl+C para salir)')}")
         try:

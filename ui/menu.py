@@ -1,11 +1,17 @@
 """
-ui/menu.py — Menú principal de Visor.
+ui/menu.py — Menú principal de Visor v2.1
+Jasol Group · Ing. Jeisson Alberto Sarmiento · Saravena, Arauca, Colombia
 """
 
 from datetime import datetime
-from core.colores import banner, separador, titulo, info, ok, fallo, warn, dim, resaltar, tabla_estado
-from config.settings import INTERVALO_MONITOREO
+from core.colores import (
+    banner, separador, titulo, info, ok, fallo, warn,
+    dim, resaltar, azul, naranja, tabla_estado, firma
+)
+from config.settings import INTERVALO_MONITOREO, VERSION, AUTOR, ORGANIZATION, UBICACION
 
+
+# ── Menú principal ────────────────────────────────────────────────────────
 
 def menu_principal():
     banner()
@@ -18,77 +24,71 @@ def menu_principal():
         print(f"  {resaltar('4.')} 📶  Test de calidad de internet")
         print(f"  {resaltar('5.')} 🗺️   Escanear rango IP")
         print(f"  {resaltar('6.')} 📋  Ver último reporte")
-        print(f"  {resaltar('7.')} ⚙️   Configuración rápida")
+        print(f"  {resaltar('7.')} 🔌  Info de interfaces de red")
+        print(f"  {resaltar('8.')} 🌍  Geolocalizar IP pública")
+        print(f"  {resaltar('9.')} ⚙️   Configuración rápida")
         print(f"  {resaltar('0.')} ❌  Salir")
         separador()
 
         opcion = input(f"\n  {info('Elige una opción:')} ").strip()
 
-        if opcion == "1":
-            _menu_monitoreo()
-        elif opcion == "2":
-            _escaneo_unico()
-        elif opcion == "3":
-            _menu_web()
-        elif opcion == "4":
-            _menu_internet()
-        elif opcion == "5":
-            _menu_rango()
-        elif opcion == "6":
-            _ver_reporte()
-        elif opcion == "7":
-            _configuracion_rapida()
+        if   opcion == "1": _menu_monitoreo()
+        elif opcion == "2": _escaneo_unico()
+        elif opcion == "3": _menu_web()
+        elif opcion == "4": _menu_internet()
+        elif opcion == "5": _menu_rango()
+        elif opcion == "6": _ver_reporte()
+        elif opcion == "7": _info_interfaces()
+        elif opcion == "8": _geolocalizacion_manual()
+        elif opcion == "9": _configuracion_rapida()
         elif opcion == "0":
-            print(f"\n  {dim('Creado por Ing. Jeisson Alberto Sarmiento  ·  Jasol Group  ·  Saravena, Arauca, Colombia')}\n")
+            print(f"\n  {dim('─'*50)}")
+            print(f"  {dim('Creado por ' + AUTOR)}")
+            print(f"  {dim('Pertenece a ' + ORGANIZATION + '  ·  ' + UBICACION)}")
+            print(f"  {dim('─'*50)}\n")
             break
         else:
             print(f"\n  {warn('Opción inválida. Intenta de nuevo.')}")
 
 
-# ── Monitoreo continuo ────────────────────────────────────────────────────
+# ── 1. Monitoreo continuo ─────────────────────────────────────────────────
 
 def _menu_monitoreo():
     from core.monitor import monitoreo_continuo
-    from core.colores import banner
     banner()
     separador("Monitoreo continuo")
-    print(f"\n  {info(f'Intervalo: {INTERVALO_MONITOREO}s   ·   Ctrl+C para detener')}\n")
+    print(f"\n  {info('Intervalo: ' + str(INTERVALO_MONITOREO) + 's   ·   Ctrl+C para detener')}\n")
     try:
         monitoreo_continuo(intervalo=INTERVALO_MONITOREO)
     except KeyboardInterrupt:
         pass
 
 
-# ── Escaneo único ─────────────────────────────────────────────────────────
+# ── 2. Escaneo único ──────────────────────────────────────────────────────
 
 def _escaneo_unico():
     from core.monitor import escanear_dispositivos
     from utils.reportes import guardar_reporte
 
     separador("Escaneo de dispositivos")
-    print(f"\n  {info('Escaneando...')}\n")
+    print(f"\n  {info('Escaneando la red...')}\n")
 
     resultados = escanear_dispositivos()
-
     up   = [r for r in resultados if r["online"]]
     down = [r for r in resultados if not r["online"]]
 
     tabla_estado(resultados)
     separador()
-    print(f"  {ok(f'{len(up)} en línea')}   {fallo(f'{len(down)} caídos')}   {dim(f'Total: {len(resultados)}')}")
+    print(f"  {ok(str(len(up)) + ' en línea')}   {fallo(str(len(down)) + ' caídos')}   {dim('Total: ' + str(len(resultados)))}")
 
-    # Guardar reporte
-    ruta = guardar_reporte({
-        "ts":          datetime.now().isoformat(),
-        "dispositivos": resultados,
-    })
+    ruta = guardar_reporte({"ts": datetime.now().isoformat(), "dispositivos": resultados})
     if ruta:
-        print(f"\n  {dim(f'Reporte guardado: {ruta.name}')}")
+        print(f"\n  {dim('Reporte guardado: ' + ruta.name)}")
 
     input(f"\n  {dim('Enter para continuar...')}")
 
 
-# ── Web ───────────────────────────────────────────────────────────────────
+# ── 3. Servicios web ──────────────────────────────────────────────────────
 
 def _menu_web():
     from core.web_service import escanear_por_categorias
@@ -100,111 +100,91 @@ def _menu_web():
 
     categorias = escanear_por_categorias()
 
-    total_up  = 0
-    total_all = 0
-
-    for cat, resultados in categorias.items():
-        if not resultados:
-            continue
-
-        up  = sum(1 for r in resultados if r.get("online"))
-        tot = len(resultados)
+    total_up = total_tot = 0
+    for cat, servicios in categorias.items():
+        up  = sum(1 for s in servicios if s.get("online"))
+        tot = len(servicios)
         total_up  += up
-        total_all += tot
+        total_tot += tot
 
-        color_cat = ok if up == tot else (warn if up > 0 else fallo)
-        separador(f"{cat}  {color_cat(str(up)+'/'+str(tot))}")
+        icono = "✅" if up == tot else ("⚠️ " if up > 0 else "❌")
+        separador(f"{cat}  {icono} {up}/{tot}")
 
-        ancho = max((len(r.get("nombre", "")) for r in resultados), default=12) + 1
-
-        for r in resultados:
-            estado_s = ok("  UP  ") if r.get("online") else fallo(" DOWN ")
-            http_s   = str(r.get("http") or "—").rjust(4)
-            lat      = r.get("latencia")
-            lat_s    = (ok(str(lat)+" ms") if lat and lat < 300 else
-                        warn(str(lat)+" ms") if lat and lat < 800 else
-                        fallo(str(lat)+" ms") if lat else dim("—")).rjust(10)
-            nombre   = r.get("nombre", "")
-            print(f"  {nombre:<{ancho}}  [{estado_s}]  HTTP {http_s}  {lat_s}")
+        ancho = max((len(s["nombre"]) for s in servicios), default=10) + 2
+        for s in servicios:
+            nombre = s["nombre"]
+            online = s.get("online")
+            lat    = s.get("latencia")
+            http   = s.get("http", "—")
+            lat_s  = f"{lat:.1f} ms" if lat else "—"
+            lat_c  = "✅" if lat and lat < 400 else "⚠️ "
+            estado = ok("  UP  ") if online else fallo(" DOWN ")
+            print(f"  {nombre:<{ancho}} [{estado}]  HTTP {http}  {lat_c} {lat_s}")
 
     separador()
-    color_total = ok if total_up == total_all else (warn if total_up > total_all // 2 else fallo)
-    print(f"  {resaltar('TOTAL:')}  {color_total(str(total_up)+'/'+str(total_all)+' servicios activos')}")
+    print(f"  TOTAL:  {ok(str(total_up) + '/' + str(total_tot) + ' servicios activos') if total_up == total_tot else warn(str(total_up) + '/' + str(total_tot) + ' servicios activos')}")
 
     ruta = guardar_reporte({"ts": datetime.now().isoformat(), "web": categorias})
     if ruta:
-        print(f"  {dim('Reporte: ' + ruta.name)}")
+        print(f"  {dim('Reporte guardado: ' + ruta.name)}")
 
     input(f"\n  {dim('Enter para continuar...')}")
 
 
-# ── Internet ──────────────────────────────────────────────────────────────
+# ── 4. Test de internet ───────────────────────────────────────────────────
 
 def _menu_internet():
-    from core.test_internet import test_internet
+    from core.test_internet import medir_calidad
     from utils.reportes import guardar_reporte
 
     separador("Test de calidad de internet")
     print(f"\n  {info('Midiendo latencia, velocidad y throughput...')}")
-    print(f"  {dim('(Esto puede tardar 20-30 segundos)')}\n")
+    print(f"  {dim('(Esto puede tardar 20-40 segundos)')}\n")
 
-    r = test_internet()
+    r = medir_calidad()
 
-    calidad   = r["calidad"]
-    color_cal = ok if calidad in ("EXCELENTE", "BUENA") else (warn if calidad == "REGULAR" else fallo)
-
-    def _mbps(val, fuente=""):
-        if val is None:
-            return fallo("No disponible")
-        color = ok if val >= 10 else (warn if val >= 2 else fallo)
-        s = color(f"{val} Mbps")
-        if fuente:
-            s += f"  {dim('via ' + fuente)}"
-        return s
-
-    def _ms(val):
-        if val is None:
-            return dim("—")
-        color = ok if val < 50 else (warn if val < 150 else fallo)
-        return color(f"{val} ms")
+    cal = r.get("calidad", "—")
+    cal_s = ok(cal) if cal == "EXCELENTE" else (ok(cal) if cal == "BUENA" else (warn(cal) if cal in ("REGULAR",) else fallo(cal)))
 
     separador()
-    print(f"  {'Calidad:':<26} {color_cal(calidad)}")
+    print(f"  {'Calidad:':<28} {cal_s}")
     separador()
 
-    # ── Latencia ──
+    # Latencia
     print(f"\n  {resaltar('LATENCIA')}")
-    print(f"  {'Promedio:':<26} {_ms(r['lat_avg'])}")
-    print(f"  {'Mínima:':<26} {_ms(r['lat_min'])}")
-    print(f"  {'Máxima:':<26} {_ms(r['lat_max'])}")
-    print(f"  {'Jitter:':<26} {_ms(r['jitter'])}")
-    print(f"  {'Pérdida de paquetes:':<26} {warn(str(r['perdida'])+'%') if r['perdida'] > 0 else ok('0%')}")
-    print(f"  {'Pings OK / Total:':<26} {dim(str(r['pings_ok']) + ' / ' + str(r['total_pings']))}")
+    lat_avg = r.get("lat_avg")
+    lat_min = r.get("lat_min")
+    lat_max = r.get("lat_max")
+    jitter  = r.get("jitter")
+    perdida = r.get("perdida", 0)
+    _linea("Promedio:",           f"{lat_avg} ms" if lat_avg else "—",  lat_avg and lat_avg < 80)
+    _linea("Mínima:",             f"{lat_min} ms" if lat_min else "—",  True)
+    _linea("Máxima:",             f"{lat_max} ms" if lat_max else "—",  lat_max and lat_max < 150)
+    _linea("Jitter:",             f"{jitter} ms"  if jitter  else "—",  jitter  and jitter  < 20)
+    _linea("Pérdida de paquetes:",f"{perdida}%",                         perdida == 0)
+    _linea("Pings OK / Total:",   f"{r.get('pings_ok')} / {r.get('total_pings')}", True)
 
-    # ── Velocidad ──
+    # Velocidad
     print(f"\n  {resaltar('VELOCIDAD')}")
-    print(f"  {'Descarga:':<26} {_mbps(r.get('descarga_mbps'), r.get('fuente_dl',''))}")
-    print(f"  {'Subida:':<26} {_mbps(r.get('subida_mbps'), r.get('fuente_ul',''))}")
+    dl = r.get("descarga_mbps")
+    ul = r.get("subida_mbps")
+    fl = r.get("fuente_dl", "—")
+    fu = r.get("fuente_ul", "—")
+    _linea("Descarga:", f"{dl} Mbps  via {fl}" if dl else "No disponible", bool(dl))
+    _linea("Subida:",   f"{ul} Mbps  via {fu}" if ul else "No disponible", bool(ul))
 
-    # ── Throughput ──
-    print(f"\n  {resaltar('THROUGHPUT TCP LOCAL')}")
+    # Throughput
     tp = r.get("throughput_mbps")
-    if tp:
-        color_tp = ok if tp >= 500 else (warn if tp >= 100 else fallo)
-        print(f"  {'Stack de red:':<26} {color_tp(str(tp) + ' Mbps')}  {dim('(loopback)')}")
-    else:
-        print(f"  {'Stack de red:':<26} {fallo('No disponible')}")
+    ft = r.get("fuente_tp", "loopback")
+    print(f"\n  {resaltar('THROUGHPUT TCP LOCAL')}")
+    _linea("Stack de red:", f"{tp} Mbps  ({ft})" if tp else "—", bool(tp))
 
-    # ── Por host ──
-    separador()
-    print(f"  {resaltar('HOSTS DE REFERENCIA')}")
+    # Hosts referencia
+    print(f"\n  {resaltar('HOSTS DE REFERENCIA')}")
     for h in r.get("hosts", []):
-        lats = h.get("lats", [])
-        avg  = round(sum(lats) / len(lats), 1) if lats else None
-        s    = ok(f"{avg} ms") if lats else fallo("Sin respuesta")
-        perdidos = h.get("perdidos", 0)
-        p_str = f"  {dim(str(perdidos) + ' perdido(s)')}" if perdidos else ""
-        print(f"  {h['nombre']:<16} {dim(h['host']):<16} {s}{p_str}")
+        lat_h = h.get("latencia")
+        estado_h = ok(f"{lat_h} ms") if lat_h and lat_h < 100 else (warn(f"{lat_h} ms") if lat_h else fallo("Sin respuesta"))
+        print(f"  {h.get('nombre',''):<16} {h.get('ip',''):<12} {estado_h}")
 
     separador()
     ruta = guardar_reporte({"ts": datetime.now().isoformat(), "internet": r})
@@ -214,67 +194,66 @@ def _menu_internet():
     input(f"\n  {dim('Enter para continuar...')}")
 
 
-# ── Escaneo de rango ──────────────────────────────────────────────────────
+def _linea(label, valor, bueno=True):
+    icono = "✅" if bueno else "❌"
+    print(f"  {label:<28} {icono} {valor}")
+
+
+# ── 5. Escaneo de rango IP ────────────────────────────────────────────────
 
 def _menu_rango():
-    from core.red import escanear_rango
+    from core.red import escanear_rango, detectar_gateway
     from core.web_service import geolocalizacion_ip
     from config.device import RANGO_SCAN
 
     separador("Escanear rango IP")
-    print(f"\n  {info(f'Rango configurado: {RANGO_SCAN}')}")
-    rango = input(f"  Introduce el rango CIDR (Enter = {RANGO_SCAN}): ").strip() or RANGO_SCAN
+    print(f"\n  {info('Rango: ' + RANGO_SCAN)}")
+    print(f"  {dim('Escaneando... (puede tardar 30-60 segundos)')}\n")
 
-    print(f"\n  {info(f'Escaneando {rango}...')}\n")
-    resultados = escanear_rango(rango)
-    activos = [r for r in resultados if r["activo"]]
+    resultados = escanear_rango(RANGO_SCAN)
+    activos    = [r for r in resultados if r.get("activo")]
 
-    if not activos:
-        print(f"  {warn('No se encontraron hosts activos en el rango.')}")
-        input(f"\n  {dim('Enter para continuar...')}")
-        return
+    print(f"  {resaltar('IP'):<22} {resaltar('LATENCIA'):<14} {resaltar('HOSTNAME')}")
+    print(f"  {dim('─'*60)}")
+    for h in activos:
+        lat_s    = f"{h['latencia']} ms" if h.get("latencia") else "—"
+        hostname = h.get("hostname") or "—"
+        lat_c    = ok if h.get("latencia") and h["latencia"] < 50 else warn
+        print(f"  {h['ip']:<22} {lat_c(lat_s):<30} {dim(hostname)}")
 
-    # Mostrar hosts activos
-    print(f"  {'IP':<18} {'LATENCIA':>10}  HOSTNAME")
-    print(f"  {'─'*55}")
-    for r in activos:
-        lat_s = f"{r['latencia']} ms" if r.get('latencia') else "—"
-        host  = r.get("hostname") or ""
-        print(f"  {ok(r['ip']):<28} {lat_s:>10}  {dim(host)}")
+    separador()
+    print(f"  {ok(str(len(activos)) + ' host(s) activos')} de {len(resultados)} IPs escaneadas")
 
-    print(f"\n  {resaltar(str(len(activos)) + ' host(s) activos de ' + str(len(resultados)) + ' IPs escaneadas')}")
-
-    # Geolocalización
-    geo_input = input(f"\n  {info('¿Geolocalizar IPs activas? (s/N): ')}").strip().lower()
-    if geo_input in ("s", "si", "sí", "y", "yes"):
-        # Filtrar IPs públicas (privadas se saltan solas dentro de geolocalizacion_ip)
-        ips = [r["ip"] for r in activos]
-        print(f"\n  {info(f'Geolocalizando {len(ips)} IP(s)...')}\n")
-
-        print(f"  {'IP':<18} {'PAÍS':<20} {'CIUDAD':<18} {'ISP':<30}")
-        print(f"  {'─'*88}")
-
-        for ip in ips:
-            geo = geolocalizacion_ip(ip)
-            if geo.get("privada"):
-                print(f"  {ip:<18} {dim('IP privada — red local'):<68}")
-            elif geo.get("error"):
-                print(f"  {ip:<18} {fallo('Sin datos'):<68}")
-            else:
-                pais   = (geo.get("pais", "?") + " " + geo.get("codigo", ""))[:19]
-                ciudad = geo.get("ciudad", "?")[:17]
-                isp    = geo.get("isp", "?")[:29]
-                lat    = geo.get("lat", "")
-                lon    = geo.get("lon", "")
-                coord  = f"({lat}, {lon})" if lat and lon else ""
-                print(f"  {ip:<18} {pais:<20} {ciudad:<18} {isp:<30}")
-                if coord:
-                    print(f"  {'':<18} {dim('Coords: ' + coord)}")
+    # Geolocalización de IPs públicas
+    publicas = [h["ip"] for h in activos if not _es_privada(h["ip"])]
+    if publicas:
+        print(f"\n  {info('Geolocalizando ' + str(len(publicas)) + ' IPs públicas...')}\n")
+        print(f"  {resaltar('IP'):<20} {resaltar('PAÍS'):<22} {resaltar('CIUDAD'):<20} {resaltar('ISP')}")
+        print(f"  {dim('─'*80)}")
+        for ip in publicas:
+            geo  = geolocalizacion_ip(ip)
+            pais = geo.get("pais", "?")
+            ciudad = geo.get("ciudad", "?")
+            isp  = geo.get("isp", "?")
+            lat  = geo.get("lat")
+            lon  = geo.get("lon")
+            coord = f"({lat}, {lon})" if lat and lon else ""
+            print(f"  {ip:<20} {pais:<22} {ciudad:<20} {isp}")
+            if coord:
+                print(f"  {'':<20} {dim('Coords: ' + coord)}")
 
     input(f"\n  {dim('Enter para continuar...')}")
 
 
-# ── Reporte ───────────────────────────────────────────────────────────────
+def _es_privada(ip: str) -> bool:
+    import ipaddress
+    try:
+        return ipaddress.ip_address(ip).is_private
+    except Exception:
+        return True
+
+
+# ── 6. Ver reporte ────────────────────────────────────────────────────────
 
 def _ver_reporte():
     from utils.reportes import leer_ultimo_reporte
@@ -283,7 +262,102 @@ def _ver_reporte():
     input(f"  {dim('Enter para continuar...')}")
 
 
-# ── Config rápida ─────────────────────────────────────────────────────────
+# ── 7. Info de interfaces de red ──────────────────────────────────────────
+
+def _info_interfaces():
+    import subprocess, platform, socket
+
+    separador("Interfaces de red")
+    print()
+
+    sistema = platform.system().lower()
+    ip_local = None
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip_local = s.getsockname()[0]
+        s.close()
+    except Exception:
+        pass
+
+    hostname = socket.gethostname()
+    print(f"  {resaltar('Hostname:')}         {hostname}")
+    print(f"  {resaltar('IP local:')}         {ip_local or '—'}")
+
+    try:
+        ip_pub_req = __import__("urllib.request", fromlist=["urlopen"]).urlopen(
+            "https://api.ipify.org", timeout=5).read().decode()
+        print(f"  {resaltar('IP pública:')}       {ip_pub_req}")
+    except Exception:
+        print(f"  {resaltar('IP pública:')}       {warn('No disponible')}")
+
+    print()
+    try:
+        if sistema == "windows":
+            r = subprocess.run(["ipconfig", "/all"], capture_output=True, text=True, timeout=10)
+        else:
+            r = subprocess.run(["ip", "addr"], capture_output=True, text=True, timeout=10)
+        # Mostrar solo líneas relevantes
+        for line in r.stdout.splitlines():
+            l = line.strip()
+            if any(k in l.lower() for k in ["adapter", "dirección ipv4", "ipv4 address",
+                                             "máscara de subred", "subnet mask",
+                                             "puerta de enlace", "default gateway",
+                                             "inet ", "ether", "descripción", "description",
+                                             "dirección física", "physical address"]):
+                print(f"  {dim(l)}")
+    except Exception as e:
+        print(f"  {warn('No se pudo obtener info de interfaces: ' + str(e))}")
+
+    input(f"\n  {dim('Enter para continuar...')}")
+
+
+# ── 8. Geolocalizar IP manual ─────────────────────────────────────────────
+
+def _geolocalizacion_manual():
+    from core.web_service import geolocalizacion_ip
+
+    separador("Geolocalizar IP pública")
+    print(f"\n  {dim('Deja vacío para usar tu IP pública actual.')}")
+    ip_input = input(f"\n  {info('IP a consultar:')} ").strip()
+
+    if not ip_input:
+        try:
+            import urllib.request
+            ip_input = urllib.request.urlopen("https://api.ipify.org", timeout=5).read().decode()
+            print(f"  {dim('Tu IP pública: ' + ip_input)}")
+        except Exception:
+            print(f"  {fallo('No se pudo obtener la IP pública.')}")
+            input(f"\n  {dim('Enter para continuar...')}")
+            return
+
+    print(f"\n  {info('Consultando ' + ip_input + '...')}\n")
+    geo = geolocalizacion_ip(ip_input)
+
+    if geo.get("privada"):
+        print(f"  {warn('Es una IP privada/local, no tiene geolocalización.')}")
+    elif geo.get("error"):
+        print(f"  {fallo('Error: ' + geo['error'])}")
+    else:
+        separador()
+        campos = [
+            ("IP",       geo.get("ip",      "—")),
+            ("País",     geo.get("pais",    "—") + " (" + geo.get("codigo","?") + ")"),
+            ("Región",   geo.get("region",  "—")),
+            ("Ciudad",   geo.get("ciudad",  "—")),
+            ("ISP",      geo.get("isp",     "—")),
+            ("Org",      geo.get("org",     "—")),
+            ("AS",       geo.get("as",      "—")),
+            ("Coordenadas", str(geo.get("lat","—")) + ", " + str(geo.get("lon","—"))),
+        ]
+        for label, valor in campos:
+            print(f"  {resaltar(label + ':'):<28} {valor}")
+        separador()
+
+    input(f"\n  {dim('Enter para continuar...')}")
+
+
+# ── 9. Configuración rápida ───────────────────────────────────────────────
 
 def _configuracion_rapida():
     separador("Configuración rápida")
@@ -291,30 +365,27 @@ def _configuracion_rapida():
   {info('Archivos de configuración:')}
 
   {resaltar('config/device.py')}
-    → Lista de dispositivos a monitorear (IP, MAC, nombre, grupo)
-    → Servicios web a verificar
-    → Rango IP para escaneo automático
+    → Dispositivos a monitorear (IP, MAC, nombre, grupo)
+    → Servicios web personalizados
+    → Rango IP para escaneo
 
   {resaltar('config/smtp_config.py')}
     → Credenciales de correo para alertas automáticas
 
   {resaltar('config/settings.py')}
-    → Intervalo de monitoreo, timeouts, reportes
+    → Intervalo de monitoreo, versión, timeouts, reportes
 
   {dim('Edita estos archivos con tu editor de texto favorito.')}
+  {dim('Luego reinicia Visor para aplicar los cambios.')}
 """)
     input(f"  {dim('Enter para volver...')}")
 
 
-# ── Ejecución directa (flags CLI) ────────────────────────────────────────
+# ── CLI directo (flags) ───────────────────────────────────────────────────
 
 def run_direct(args):
     banner()
-    if args.scan:
-        _escaneo_unico()
-    if args.web:
-        _menu_web()
-    if args.internet:
-        _menu_internet()
-    if args.report:
-        _ver_reporte()
+    if args.scan:     _escaneo_unico()
+    if args.web:      _menu_web()
+    if args.internet: _menu_internet()
+    if args.report:   _ver_reporte()

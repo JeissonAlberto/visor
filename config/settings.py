@@ -3,9 +3,11 @@
 #  Edita este archivo para personalizar Visor
 # ─────────────────────────────────────────────
 
-VERSION = "2.0.0"
-APP_NAME = "Visor"
+VERSION      = "2.1.0"
+APP_NAME     = "Visor"
 ORGANIZATION = "Jasol Group"
+AUTOR        = "Ing. Jeisson Alberto Sarmiento"
+UBICACION    = "Saravena, Arauca, Colombia"
 
 # ── Intervalo de monitoreo continuo (segundos) ──
 INTERVALO_MONITOREO = 60
@@ -20,7 +22,6 @@ FORMATO_REPORTE   = "txt"         # "txt" | "json"
 MAX_REPORTES      = 20            # máximo de reportes guardados (elimina los más viejos)
 
 # ── Alertas por correo ──
-# Configura las credenciales en config/smtp_config.py
 ALERTAS_EMAIL_ACTIVAS = True
 
 # ── Colores en consola ──

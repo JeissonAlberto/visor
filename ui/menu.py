@@ -49,6 +49,8 @@ def menu_principal():
 
 def _menu_monitoreo():
     from core.monitor import monitoreo_continuo
+    from core.colores import banner
+    banner()
     separador("Monitoreo continuo")
     print(f"\n  {info(f'Intervalo: {INTERVALO_MONITOREO}s   ·   Ctrl+C para detener')}\n")
     try:

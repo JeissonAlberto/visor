@@ -38,29 +38,35 @@ if errorlevel 1 (
 )
 echo  [OK] Version compatible.
 
+:: ── Actualizar pip y setuptools ────────────────────────────
+echo.
+echo  Actualizando pip y setuptools...
+python -m pip install --upgrade pip setuptools wheel -q
+echo  [OK] pip y setuptools actualizados.
+
 :: ── Instalar como comando del sistema ──────────────────────
 echo.
 echo  Instalando comando "visor"...
-pip install -e . -q
+pip install . -q
 if errorlevel 1 (
-    echo  [ERROR] Fallo pip install. Intenta: pip install -e .
+    echo.
+    echo  [ERROR] Fallo la instalacion.
+    echo  Intenta manualmente: pip install .
     pause
     exit /b 1
 )
-echo  [OK] Instalado.
+echo  [OK] Visor instalado.
 
-:: ── Obtener ruta de scripts Python y agregar al PATH ───────
+:: ── Agregar scripts de Python al PATH ──────────────────────
 for /f "delims=" %%s in ('python -c "import sysconfig; print(sysconfig.get_path(\"scripts\"))"') do set SCRIPTS=%%s
 echo  [OK] Scripts en: %SCRIPTS%
 
-:: Leer PATH actual del usuario
 for /f "skip=2 tokens=3*" %%a in ('reg query "HKCU\Environment" /v PATH 2^>nul') do set UPATH=%%a %%b
 
-:: Agregar si no está ya
 echo %UPATH% | find /i "%SCRIPTS%" >nul 2>&1
 if errorlevel 1 (
     setx PATH "%UPATH%;%SCRIPTS%" >nul
-    echo  [OK] Ruta agregada al PATH del usuario.
+    echo  [OK] Ruta agregada al PATH.
 ) else (
     echo  [OK] Ruta ya estaba en PATH.
 )

@@ -23,17 +23,22 @@ HOSTS_REFERENCIA = [
     ("Google DNS 2", "8.8.4.4"),
 ]
 
-# Archivos públicos para medir descarga — servidores con buena conectividad desde Colombia
+# Servidores de descarga — múltiples opciones ordenadas por confiabilidad desde Colombia
 _DOWNLOAD_URLS = [
-    ("Speedtest Cached", "https://speed.hetzner.de/1MB.bin"),
-    ("GitHub CDN",       "https://github.com/nicehash/NiceHashQuickMiner/releases/download/v0.9.2.9/NiceHashQuickMinerInstaller.exe"),
-    ("Cloudflare",       "https://speed.cloudflare.com/__down?bytes=2000000"),
-    ("TELE2",            "https://speedtest.tele2.net/1MB.bin"),
+    ("Cloudflare",   "https://speed.cloudflare.com/__down?bytes=5000000"),   # 5 MB  — CDN global, excelente desde CO
+    ("TELE2 10MB",   "https://speedtest.tele2.net/10MB.bin"),                # 10 MB — servidor EU dedicado
+    ("TELE2 1MB",    "https://speedtest.tele2.net/1MB.bin"),                 # 1 MB  — fallback ligero
+    ("Hetzner",      "https://speed.hetzner.de/10MB.bin"),                   # 10 MB — servidor DE
+    ("OVH",          "https://proof.ovh.net/files/10Mb.dat"),                # 10 MB — servidor FR
 ]
 
-# Servidor para upload (httpbin acepta POST)
-_UPLOAD_URL = "https://httpbin.org/post"
-_UPLOAD_SIZE = 1_000_000   # 1 MB
+# Servidores de subida — en orden de preferencia
+_UPLOAD_ENDPOINTS = [
+    ("Cloudflare",  "https://speed.cloudflare.com/__up",    "POST", 2_000_000),   # 2 MB
+    ("httpbin.org", "https://httpbin.org/post",             "POST", 1_000_000),   # 1 MB fallback
+    ("postman-echo","https://postman-echo.com/post",        "POST", 1_000_000),   # 1 MB fallback
+]
+_UPLOAD_SIZE = 2_000_000   # default 2 MB
 
 
 # ── Latencia ──────────────────────────────────────────────────────────────
@@ -104,35 +109,36 @@ def _medir_descarga(duracion_max: float = 8.0) -> tuple[float | None, str]:
 
 # ── Velocidad de subida ───────────────────────────────────────────────────
 
-def _medir_subida(duracion_max: float = 8.0) -> tuple[float | None, str]:
+def _medir_subida(duracion_max: float = 10.0) -> tuple[float | None, str]:
     """
-    Sube datos a httpbin y mide Mbps.
+    Sube datos a varios servidores en orden y mide Mbps.
     Devuelve (mbps, fuente) o (None, motivo_error).
     """
     ctx = _ssl_ctx()
-    datos = b"X" * _UPLOAD_SIZE
 
-    try:
-        req = urllib.request.Request(
-            _UPLOAD_URL,
-            data=datos,
-            method="POST",
-            headers={
-                "Content-Type": "application/octet-stream",
-                "User-Agent":   "Visor-NOC/2.0",
-                "Content-Length": str(len(datos)),
-            }
-        )
-        t0 = time.perf_counter()
-        with urllib.request.urlopen(req, context=ctx, timeout=15) as resp:
-            resp.read()
-        elapsed = time.perf_counter() - t0
+    for nombre, url, method, size in _UPLOAD_ENDPOINTS:
+        datos = b"X" * size
+        try:
+            req = urllib.request.Request(
+                url,
+                data=datos,
+                method=method,
+                headers={
+                    "Content-Type":   "application/octet-stream",
+                    "User-Agent":     "Visor-NOC/2.0",
+                    "Content-Length": str(len(datos)),
+                }
+            )
+            t0 = time.perf_counter()
+            with urllib.request.urlopen(req, context=ctx, timeout=15) as resp:
+                resp.read()
+            elapsed = time.perf_counter() - t0
 
-        if elapsed > 0.2:
-            mbps = round((len(datos) * 8) / elapsed / 1_000_000, 2)
-            return mbps, "httpbin.org"
-    except Exception:
-        pass
+            if elapsed > 0.2:
+                mbps = round((len(datos) * 8) / elapsed / 1_000_000, 2)
+                return mbps, nombre
+        except Exception:
+            continue
 
     return None, "Sin acceso al servidor de subida"
 

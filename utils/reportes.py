@@ -63,7 +63,9 @@ def _formato_txt(datos: dict) -> str:
     ts = datos.get("ts", datetime.now().isoformat())
     lineas = [
         "════════════════════════════════════════════",
-        f"  VISOR — Jasol Group",
+        "  VISOR — Monitor de Red v2.0",
+        "  Creado por Ing. Jeisson Alberto Sarmiento",
+        "  Jasol Group  ·  Saravena, Arauca, Colombia",
         f"  Reporte: {ts}",
         "════════════════════════════════════════════",
         "",
@@ -72,35 +74,62 @@ def _formato_txt(datos: dict) -> str:
     # Dispositivos
     devs = datos.get("dispositivos", [])
     if devs:
-        lineas += ["📡 DISPOSITIVOS DE RED", "─────────────────────"]
+        lineas += ["DISPOSITIVOS DE RED", "───────────────────"]
         for d in devs:
+            if not isinstance(d, dict):
+                continue
             estado = "UP  " if d.get("online") else "DOWN"
-            lat    = f"{d.get('latencia')} ms" if d.get("latencia") else "Sin respuesta"
-            lineas.append(f"[{estado}] {d.get('nombre','')} ({d.get('ip','')}) — {lat}")
+            lat    = str(d.get("latencia")) + " ms" if d.get("latencia") else "Sin respuesta"
+            lineas.append("[" + estado + "] " + str(d.get("nombre","")) + " (" + str(d.get("ip","")) + ") — " + lat)
         lineas.append("")
 
-    # Web
-    webs = datos.get("web", [])
+    # Web — nuevo formato por categorías (dict) o viejo formato (lista)
+    webs = datos.get("web")
     if webs:
-        lineas += ["🌐 SERVICIOS WEB", "────────────────"]
-        for w in webs:
-            estado = "OK  " if w.get("online") else "DOWN"
-            lat    = f"{w.get('latencia')} ms" if w.get("latencia") else "—"
-            http   = f"HTTP {w.get('http','—')}" if w.get("http") else ""
-            lineas.append(f"[{estado}] {w.get('nombre','')} ({w.get('url','')}) — {lat} {http}")
+        lineas += ["SERVICIOS WEB", "─────────────"]
+        if isinstance(webs, dict):
+            # Nuevo formato: {"DNS y Red": [...], "Redes Sociales": [...], ...}
+            for cat, servicios in webs.items():
+                if not isinstance(servicios, list):
+                    continue
+                up  = sum(1 for s in servicios if isinstance(s, dict) and s.get("online"))
+                tot = len(servicios)
+                lineas.append("")
+                lineas.append(cat + "  (" + str(up) + "/" + str(tot) + ")")
+                lineas.append("  " + "─" * 40)
+                for w in servicios:
+                    if not isinstance(w, dict):
+                        continue
+                    estado = "UP  " if w.get("online") else "DOWN"
+                    lat    = str(w.get("latencia")) + " ms" if w.get("latencia") else "—"
+                    http   = "HTTP " + str(w.get("http", "—"))
+                    lineas.append("  [" + estado + "] " + str(w.get("nombre","")) + " — " + lat + "  " + http)
+        elif isinstance(webs, list):
+            # Formato antiguo: lista plana
+            for w in webs:
+                if not isinstance(w, dict):
+                    continue
+                estado = "OK  " if w.get("online") else "DOWN"
+                lat    = str(w.get("latencia")) + " ms" if w.get("latencia") else "—"
+                http   = "HTTP " + str(w.get("http","—")) if w.get("http") else ""
+                lineas.append("[" + estado + "] " + str(w.get("nombre","")) + " (" + str(w.get("url","")) + ") — " + lat + " " + http)
         lineas.append("")
 
     # Internet
     inet = datos.get("internet")
-    if inet:
-        lineas += ["📶 CALIDAD DE INTERNET", "──────────────────────"]
-        lineas.append(f"Calidad:           {inet.get('calidad','—')}")
-        lineas.append(f"Latencia avg/min/max: {inet.get('lat_avg')} / {inet.get('lat_min')} / {inet.get('lat_max')} ms")
-        lineas.append(f"Jitter:            {inet.get('jitter')} ms")
-        lineas.append(f"Pérdida de paquetes: {inet.get('perdida')}%")
-        lineas.append(f"Pings OK / Total:  {inet.get('pings_ok')} / {inet.get('total_pings')}")
+    if inet and isinstance(inet, dict):
+        lineas += ["CALIDAD DE INTERNET", "───────────────────"]
+        lineas.append("Calidad:              " + str(inet.get("calidad","—")))
+        lineas.append("Latencia avg/min/max: " + str(inet.get("lat_avg")) + " / " + str(inet.get("lat_min")) + " / " + str(inet.get("lat_max")) + " ms")
+        lineas.append("Jitter:               " + str(inet.get("jitter")) + " ms")
+        lineas.append("Descarga:             " + str(inet.get("descarga_mbps","—")) + " Mbps")
+        lineas.append("Subida:               " + str(inet.get("subida_mbps","—")) + " Mbps")
+        lineas.append("Throughput local:     " + str(inet.get("throughput_mbps","—")) + " Mbps")
+        lineas.append("Perdida de paquetes:  " + str(inet.get("perdida")) + "%")
+        lineas.append("Pings OK / Total:     " + str(inet.get("pings_ok")) + " / " + str(inet.get("total_pings")))
         lineas.append("")
 
-    lineas.append("────────────────────────────────────────────")
-    lineas.append("Visor v2.0 · by Jasol Group · Arauca, Colombia")
+    lineas.append("════════════════════════════════════════════")
+    lineas.append("Visor v2.0  ·  Creado por Ing. Jeisson Alberto Sarmiento")
+    lineas.append("Jasol Group  ·  Saravena, Arauca, Colombia")
     return "\n".join(lineas)

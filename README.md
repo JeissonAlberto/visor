@@ -15,30 +15,45 @@
 | 🗺️ Escaneo de rango IP | Descubre hosts activos en una subred CIDR |
 | 📧 Alertas por correo | Gmail SMTP — notifica caídas y recuperaciones |
 | 📋 Reportes automáticos | Guarda TXT o JSON en `/reports` |
-| 🧙 Asistente de configuración | `python main.py --setup` guía paso a paso |
+| 🧙 Asistente de configuración | `visor --setup` guía paso a paso |
 | 🎨 Colores en consola | Interfaz legible, compatible Win/Linux/macOS |
 
 ---
 
-## 🚀 Inicio rápido
+## 🚀 Instalación (una sola vez)
 
-```bash
-# 1. Clona el repositorio
+### Windows
+```powershell
 git clone https://github.com/JeissonAlberto/visor.git
 cd visor
-
-# 2. (Opcional) Configura con el asistente
-python main.py --setup
-
-# 3. Edita manualmente si prefieres
-#    config/device.py    → tus dispositivos y URLs
-#    config/smtp_config.py → correo para alertas
-
-# 4. Ejecuta
-python main.py
+.\instalar.bat
 ```
 
+### Linux / macOS
+```bash
+git clone https://github.com/JeissonAlberto/visor.git
+cd visor
+chmod +x instalar.sh
+./instalar.sh
+```
+
+> Después de instalar, **cierra y vuelve a abrir la terminal**. El comando `visor` quedará disponible en cualquier carpeta.
+
 **Requisitos:** Python 3.10+ · Sin dependencias externas (solo stdlib)
+
+---
+
+## ▶️ Uso
+
+```bash
+visor                # Menú interactivo principal
+visor --scan         # Escaneo único de dispositivos
+visor --web          # Verificar servicios web
+visor --internet     # Test de calidad de internet
+visor --setup        # Asistente de configuración
+visor --report       # Ver último reporte
+visor --version      # Ver versión
+```
 
 ---
 
@@ -46,7 +61,10 @@ python main.py
 
 ```
 visor/
+├── instalar.bat             ← Instalador automático Windows
+├── instalar.sh              ← Instalador automático Linux/macOS
 ├── main.py                  ← Punto de entrada
+├── setup.py / pyproject.toml← Registro del comando "visor"
 ├── config/
 │   ├── device.py            ← 📝 TUS dispositivos y servicios web
 │   ├── smtp_config.py       ← 📝 Correo para alertas
@@ -64,20 +82,6 @@ visor/
 ├── utils/
 │   └── reportes.py          ← Generación y gestión de reportes
 └── reports/                 ← Reportes generados (gitignoreado)
-```
-
----
-
-## 🖥️ Uso desde línea de comandos
-
-```bash
-python main.py              # Menú interactivo
-python main.py --scan       # Escaneo único rápido
-python main.py --web        # Solo servicios web
-python main.py --internet   # Solo test de internet
-python main.py --setup      # Asistente de configuración
-python main.py --report     # Ver último reporte
-python main.py --version    # Ver versión
 ```
 
 ---
@@ -116,7 +120,7 @@ DESTINATARIO = "noc@empresa.com"
 
 | Versión | Cambios |
 |---|---|
-| **v2.0** | Refactor completo · CLI con flags · Escaneo de rangos CIDR · Jitter · Reportes JSON/TXT · Asistente de configuración · Colores multiplataforma |
+| **v2.0** | Refactor completo · Comando `visor` global · Instaladores automáticos · CLI con flags · Escaneo CIDR · Jitter · Reportes JSON/TXT · Asistente de configuración |
 | **v1.0** | Versión original ([jsamrngs/zabbixcito](https://github.com/jsamrngs/zabbixcito)) — menú básico, ping, ARP, alertas email |
 
 ---
@@ -124,7 +128,7 @@ DESTINATARIO = "noc@empresa.com"
 ## 👤 Créditos
 
 - **v1.0 original:** [@jsamrngs](https://github.com/jsamrngs/zabbixcito)
-- **v2.0 Visor:** [Jasol Group](https://site.zapia.com/6bdicjlq) · Saravena, Arauca, Colombia
+- **v2.0 Visor:** [Jasol Group](https://site.zapia.com/oiki3u0z) · Saravena, Arauca, Colombia
 
 ---
 

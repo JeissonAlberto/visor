@@ -107,7 +107,32 @@ def _medir_descarga(duracion_max: float = 8.0) -> tuple[float | None, str]:
     return None, "Sin acceso a servidores de prueba"
 
 
-# ── Velocidad de subida ───────────────────────────────────────────────────
+# ── Velocidad con speedtest-cli (nativo) ─────────────────────────────────
+
+def _medir_con_speedtest() -> tuple[float | None, float | None, str]:
+    """
+    Usa speedtest-cli si está instalado.
+    Devuelve (descarga_mbps, subida_mbps, fuente) o (None, None, motivo).
+    """
+    import subprocess, json as _json, shutil
+    exe = shutil.which("speedtest") or shutil.which("speedtest-cli")
+    if not exe:
+        return None, None, "speedtest-cli no instalado"
+    try:
+        r = subprocess.run(
+            [exe, "--json", "--timeout", "30"],
+            capture_output=True, text=True, timeout=60
+        )
+        if r.returncode != 0:
+            return None, None, "speedtest error"
+        data  = _json.loads(r.stdout)
+        dl    = round(data["download"] / 1_000_000, 2)
+        ul    = round(data["upload"]   / 1_000_000, 2)
+        server = data.get("server", {}).get("name", "Speedtest.net")
+        return dl, ul, server
+    except Exception as e:
+        return None, None, str(e)
+
 
 def _medir_subida(duracion_max: float = 10.0) -> tuple[float | None, str]:
     """
@@ -245,11 +270,14 @@ def test_internet(count: int | None = None) -> dict:
     else:
         lat_avg = lat_min = lat_max = jitter = None
 
-    # 2. Velocidad descarga
-    mbps_dl, fuente_dl = _medir_descarga()
-
-    # 3. Velocidad subida
-    mbps_ul, fuente_ul = _medir_subida()
+    # 2. Velocidad — intentar speedtest-cli primero, luego HTTP
+    mbps_dl_st, mbps_ul_st, fuente_st = _medir_con_speedtest()
+    if mbps_dl_st is not None:
+        mbps_dl,  fuente_dl = mbps_dl_st, fuente_st
+        mbps_ul,  fuente_ul = mbps_ul_st, fuente_st
+    else:
+        mbps_dl, fuente_dl = _medir_descarga()
+        mbps_ul, fuente_ul = _medir_subida()
 
     # 4. Throughput TCP local
     mbps_tp, fuente_tp = _medir_throughput_tcp()

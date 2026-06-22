@@ -1,0 +1,12 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "visor"
+version = "2.0.0"
+description = "Monitor de Red ligero para NOC/ISP — by Jasol Group"
+requires-python = ">=3.10"
+
+[project.scripts]
+visor = "main:main"

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Visor — Monitor de Red
-by Jasol Group · Saravena, Arauca, Colombia
+Jasol Group · Ing. Jeisson Alberto Sarmiento · Saravena, Arauca, Colombia
 
 Uso:
     python main.py                  # Menú interactivo
@@ -21,7 +21,7 @@ from ui.setup_wizard import setup_wizard
 def parse_args():
     parser = argparse.ArgumentParser(
         prog="visor",
-        description="Visor — Monitor de Red by Jasol Group"
+        description="Visor — Monitor de Red · Jasol Group · Ing. Jeisson Alberto Sarmiento"
     )
     parser.add_argument("--scan",     action="store_true", help="Escaneo rápido de red")
     parser.add_argument("--web",      action="store_true", help="Verificar servicios web")
@@ -37,7 +37,7 @@ def main():
 
     if args.version:
         from config.settings import VERSION
-        print(f"Visor v{VERSION} — by Jasol Group")
+        print(f"Visor v{VERSION} — Jasol Group · Ing. Jeisson Alberto Sarmiento")
         sys.exit(0)
 
     if args.setup:

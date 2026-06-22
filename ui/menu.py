@@ -126,31 +126,71 @@ def _menu_internet():
     from utils.reportes import guardar_reporte
 
     separador("Test de calidad de internet")
-    print(f"\n  {info('Midiendo latencia y pérdida de paquetes...')}\n")
+    print(f"\n  {info('Midiendo latencia, velocidad y throughput...')}")
+    print(f"  {dim('(Esto puede tardar 20-30 segundos)')}\n")
 
     r = test_internet()
 
-    calidad = r["calidad"]
-    color_cal = ok if calidad in ("EXCELENTE","BUENA") else (warn if calidad == "REGULAR" else fallo)
+    calidad   = r["calidad"]
+    color_cal = ok if calidad in ("EXCELENTE", "BUENA") else (warn if calidad == "REGULAR" else fallo)
+
+    def _mbps(val, fuente=""):
+        if val is None:
+            return fallo("No disponible")
+        color = ok if val >= 10 else (warn if val >= 2 else fallo)
+        s = color(f"{val} Mbps")
+        if fuente:
+            s += f"  {dim('via ' + fuente)}"
+        return s
+
+    def _ms(val):
+        if val is None:
+            return dim("—")
+        color = ok if val < 50 else (warn if val < 150 else fallo)
+        return color(f"{val} ms")
 
     separador()
-    print(f"  Calidad:              {color_cal(calidad)}")
-    print(f"  Latencia promedio:    {r['lat_avg']} ms" if r['lat_avg'] else "  Latencia promedio:    —")
-    print(f"  Latencia min / max:   {r['lat_min']} ms / {r['lat_max']} ms" if r['lat_min'] else "")
-    print(f"  Jitter:               {r['jitter']} ms" if r['jitter'] is not None else "  Jitter:               —")
-    print(f"  Pérdida de paquetes:  {r['perdida']}%")
-    print(f"  Pings OK / Total:     {r['pings_ok']} / {r['total_pings']}")
-
+    print(f"  {'Calidad:':<26} {color_cal(calidad)}")
     separador()
+
+    # ── Latencia ──
+    print(f"\n  {resaltar('LATENCIA')}")
+    print(f"  {'Promedio:':<26} {_ms(r['lat_avg'])}")
+    print(f"  {'Mínima:':<26} {_ms(r['lat_min'])}")
+    print(f"  {'Máxima:':<26} {_ms(r['lat_max'])}")
+    print(f"  {'Jitter:':<26} {_ms(r['jitter'])}")
+    print(f"  {'Pérdida de paquetes:':<26} {warn(str(r['perdida'])+'%') if r['perdida'] > 0 else ok('0%')}")
+    print(f"  {'Pings OK / Total:':<26} {dim(str(r['pings_ok']) + ' / ' + str(r['total_pings']))}")
+
+    # ── Velocidad ──
+    print(f"\n  {resaltar('VELOCIDAD')}")
+    print(f"  {'Descarga:':<26} {_mbps(r.get('descarga_mbps'), r.get('fuente_dl',''))}")
+    print(f"  {'Subida:':<26} {_mbps(r.get('subida_mbps'), r.get('fuente_ul',''))}")
+
+    # ── Throughput ──
+    print(f"\n  {resaltar('THROUGHPUT TCP LOCAL')}")
+    tp = r.get("throughput_mbps")
+    if tp:
+        color_tp = ok if tp >= 500 else (warn if tp >= 100 else fallo)
+        print(f"  {'Stack de red:':<26} {color_tp(str(tp) + ' Mbps')}  {dim('(loopback)')}")
+    else:
+        print(f"  {'Stack de red:':<26} {fallo('No disponible')}")
+
+    # ── Por host ──
+    separador()
+    print(f"  {resaltar('HOSTS DE REFERENCIA')}")
     for h in r.get("hosts", []):
         lats = h.get("lats", [])
-        avg  = round(sum(lats)/len(lats), 1) if lats else None
+        avg  = round(sum(lats) / len(lats), 1) if lats else None
         s    = ok(f"{avg} ms") if lats else fallo("Sin respuesta")
-        print(f"  {h['nombre']:<15} ({h['host']})   {s}")
+        perdidos = h.get("perdidos", 0)
+        p_str = f"  {dim(str(perdidos) + ' perdido(s)')}" if perdidos else ""
+        print(f"  {h['nombre']:<16} {dim(h['host']):<16} {s}{p_str}")
 
+    separador()
     ruta = guardar_reporte({"ts": datetime.now().isoformat(), "internet": r})
     if ruta:
-        print(f"\n  {dim(f'Reporte: {ruta.name}')}")
+        print(f"  {dim('Reporte guardado: ' + ruta.name)}")
 
     input(f"\n  {dim('Enter para continuar...')}")
 

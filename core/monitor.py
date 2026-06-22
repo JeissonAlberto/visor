@@ -208,6 +208,7 @@ def monitoreo_continuo(intervalo: int = 60, callback=None):
         ciclo += 1
         separador("Ciclo " + str(ciclo) + " — " + datetime.now().strftime("%H:%M:%S"))
 
+        # ── Dispositivos LAN ──────────────────────────────────────
         resultados = escanear_dispositivos()
         caidos = []
 
@@ -231,15 +232,38 @@ def monitoreo_continuo(intervalo: int = 60, callback=None):
 
             estados_anteriores[nombre] = estado
 
+        # ── Servicios web ─────────────────────────────────────────
+        try:
+            from core.web_service import escanear_por_categorias
+            print()
+            categorias = escanear_por_categorias()
+            web_caidos = []
+            for cat, servicios in categorias.items():
+                up  = sum(1 for s in servicios if s.get("online"))
+                tot = len(servicios)
+                color_cat = ok if up == tot else (warn if up > 0 else fallo)
+                print("  " + cat + "  " + color_cat(str(up) + "/" + str(tot)))
+                for s in servicios:
+                    if not s.get("online"):
+                        web_caidos.append(s.get("nombre","?"))
+                        print("    " + fallo(s.get("nombre","?") + " — DOWN"))
+            if web_caidos:
+                caidos += ["WEB:" + n for n in web_caidos]
+        except Exception as e:
+            print("  " + warn("Servicios web: error al verificar (" + str(e) + ")"))
+
         if callback:
             callback(resultados)
 
-        up   = len(resultados) - len(caidos)
-        total = len(resultados)
-        print("\n  " + resaltar(str(up) + "/" + str(total) + " dispositivos en línea"))
+        up_lan = len(resultados) - len([c for c in caidos if not c.startswith("WEB:")])
+        print("\n  " + resaltar(str(up_lan) + "/" + str(len(resultados)) + " dispositivos LAN en línea"))
 
-        if caidos:
-            print("  " + warn("Caídos: " + ", ".join(caidos)))
+        caidos_lan = [c for c in caidos if not c.startswith("WEB:")]
+        caidos_web = [c[4:] for c in caidos if c.startswith("WEB:")]
+        if caidos_lan:
+            print("  " + warn("LAN caídos: " + ", ".join(caidos_lan)))
+        if caidos_web:
+            print("  " + warn("Web caídos: " + ", ".join(caidos_web)))
 
         print("\n  " + dim("Próximo ciclo en " + str(intervalo) + "s... (Ctrl+C para salir)"))
         try:

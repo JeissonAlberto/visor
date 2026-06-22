@@ -49,8 +49,9 @@ def banner():
  ╚██╗ ██╔╝██║╚════██║██║   ██║██╔══██╗
   ╚████╔╝ ██║███████║╚██████╔╝██║  ██║
    ╚═══╝  ╚═╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝
-{RESET}{GRIS} Monitor de Red v2.0  ·  Jasol Group{RESET}
-{GRIS} Ing. Jeisson Alberto Sarmiento  ·  Saravena, Arauca, Colombia{RESET}
+{RESET}{GRIS} Monitor de Red v2.0{RESET}
+{GRIS} Creado por Ing. Jeisson Alberto Sarmiento{RESET}
+{GRIS} Pertenece a Jasol Group  ·  Saravena, Arauca, Colombia{RESET}
 """)
 
 

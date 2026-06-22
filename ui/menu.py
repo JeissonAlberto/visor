@@ -89,32 +89,49 @@ def _escaneo_unico():
 # ── Web ───────────────────────────────────────────────────────────────────
 
 def _menu_web():
-    from core.web_service import escanear_servicios_web
+    from core.web_service import escanear_por_categorias
     from utils.reportes import guardar_reporte
 
-    separador("Servicios web")
-    print(f"\n  {info('Verificando servicios...')}\n")
+    separador("Verificar servicios web")
+    print(f"\n  {info('Verificando DNS, redes sociales, IAs y tus servicios...')}")
+    print(f"  {dim('Puede tardar 15-30 segundos')}\n")
 
-    resultados = escanear_servicios_web()
+    categorias = escanear_por_categorias()
 
-    # Mostrar tabla
-    ancho = max((len(r.get("nombre", "")) for r in resultados), default=15) + 2
-    print(f"  {'SERVICIO':<{ancho}}  {'URL':<40}  {'ESTADO':<10}  {'HTTP':>6}  {'MS':>8}")
-    print(f"  {'─'*(ancho+70)}")
+    total_up  = 0
+    total_all = 0
 
-    for r in resultados:
-        estado_s = f"{ok('OK')}" if r["online"] else f"{fallo('DOWN')}"
-        http_s   = str(r.get("http") or "—")
-        lat_s    = f"{r['latencia']} ms" if r.get("latencia") else "—"
-        url_corta = r.get("url", "")[:38]
-        print(f"  {r.get('nombre',''):<{ancho}}  {url_corta:<40}  {estado_s:<20}  {http_s:>6}  {lat_s:>8}")
+    for cat, resultados in categorias.items():
+        if not resultados:
+            continue
 
-    up = sum(1 for r in resultados if r["online"])
-    print(f"\n  {ok(f'{up}/{len(resultados)} servicios activos')}")
+        up  = sum(1 for r in resultados if r.get("online"))
+        tot = len(resultados)
+        total_up  += up
+        total_all += tot
 
-    ruta = guardar_reporte({"ts": datetime.now().isoformat(), "web": resultados})
+        color_cat = ok if up == tot else (warn if up > 0 else fallo)
+        separador(f"{cat}  {color_cat(str(up)+'/'+str(tot))}")
+
+        ancho = max((len(r.get("nombre", "")) for r in resultados), default=12) + 1
+
+        for r in resultados:
+            estado_s = ok("  UP  ") if r.get("online") else fallo(" DOWN ")
+            http_s   = str(r.get("http") or "—").rjust(4)
+            lat      = r.get("latencia")
+            lat_s    = (ok(str(lat)+" ms") if lat and lat < 300 else
+                        warn(str(lat)+" ms") if lat and lat < 800 else
+                        fallo(str(lat)+" ms") if lat else dim("—")).rjust(10)
+            nombre   = r.get("nombre", "")
+            print(f"  {nombre:<{ancho}}  [{estado_s}]  HTTP {http_s}  {lat_s}")
+
+    separador()
+    color_total = ok if total_up == total_all else (warn if total_up > total_all // 2 else fallo)
+    print(f"  {resaltar('TOTAL:')}  {color_total(str(total_up)+'/'+str(total_all)+' servicios activos')}")
+
+    ruta = guardar_reporte({"ts": datetime.now().isoformat(), "web": categorias})
     if ruta:
-        print(f"  {dim(f'Reporte: {ruta.name}')}")
+        print(f"  {dim('Reporte: ' + ruta.name)}")
 
     input(f"\n  {dim('Enter para continuar...')}")
 
@@ -199,27 +216,59 @@ def _menu_internet():
 
 def _menu_rango():
     from core.red import escanear_rango
+    from core.web_service import geolocalizacion_ip
     from config.device import RANGO_SCAN
 
     separador("Escanear rango IP")
     print(f"\n  {info(f'Rango configurado: {RANGO_SCAN}')}")
     rango = input(f"  Introduce el rango CIDR (Enter = {RANGO_SCAN}): ").strip() or RANGO_SCAN
 
-    print(f"\n  {info(f'Escaneando {rango}... (puede tardar unos segundos)')}\n")
+    print(f"\n  {info(f'Escaneando {rango}...')}\n")
     resultados = escanear_rango(rango)
-
     activos = [r for r in resultados if r["activo"]]
-    print(f"  {'IP':<18} {'ESTADO':<10} {'LATENCIA':>10}  HOSTNAME")
-    print(f"  {'─'*60}")
-    for r in activos:
-        lat_s = f"{r['latencia']} ms" if r['latencia'] else "—"
-        host  = r.get("hostname") or ""
-        print(f"  {r['ip']:<18} {ok('UP'):<20} {lat_s:>10}  {dim(host)}")
 
     if not activos:
         print(f"  {warn('No se encontraron hosts activos en el rango.')}")
+        input(f"\n  {dim('Enter para continuar...')}")
+        return
 
-    print(f"\n  {resaltar(f'{len(activos)} host(s) activos de {len(resultados)} IPs escaneadas')}")
+    # Mostrar hosts activos
+    print(f"  {'IP':<18} {'LATENCIA':>10}  HOSTNAME")
+    print(f"  {'─'*55}")
+    for r in activos:
+        lat_s = f"{r['latencia']} ms" if r.get('latencia') else "—"
+        host  = r.get("hostname") or ""
+        print(f"  {ok(r['ip']):<28} {lat_s:>10}  {dim(host)}")
+
+    print(f"\n  {resaltar(str(len(activos)) + ' host(s) activos de ' + str(len(resultados)) + ' IPs escaneadas')}")
+
+    # Geolocalización
+    geo_input = input(f"\n  {info('¿Geolocalizar IPs activas? (s/N): ')}").strip().lower()
+    if geo_input in ("s", "si", "sí", "y", "yes"):
+        # Filtrar IPs públicas (privadas se saltan solas dentro de geolocalizacion_ip)
+        ips = [r["ip"] for r in activos]
+        print(f"\n  {info(f'Geolocalizando {len(ips)} IP(s)...')}\n")
+
+        print(f"  {'IP':<18} {'PAÍS':<20} {'CIUDAD':<18} {'ISP':<30}")
+        print(f"  {'─'*88}")
+
+        for ip in ips:
+            geo = geolocalizacion_ip(ip)
+            if geo.get("privada"):
+                print(f"  {ip:<18} {dim('IP privada — red local'):<68}")
+            elif geo.get("error"):
+                print(f"  {ip:<18} {fallo('Sin datos'):<68}")
+            else:
+                pais   = (geo.get("pais", "?") + " " + geo.get("codigo", ""))[:19]
+                ciudad = geo.get("ciudad", "?")[:17]
+                isp    = geo.get("isp", "?")[:29]
+                lat    = geo.get("lat", "")
+                lon    = geo.get("lon", "")
+                coord  = f"({lat}, {lon})" if lat and lon else ""
+                print(f"  {ip:<18} {pais:<20} {ciudad:<18} {isp:<30}")
+                if coord:
+                    print(f"  {'':<18} {dim('Coords: ' + coord)}")
+
     input(f"\n  {dim('Enter para continuar...')}")
 
 

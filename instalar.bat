@@ -1,59 +1,53 @@
 @echo off
 :: ============================================================
-::  VISOR — Instalador definitivo
-::  Crea el comando "visor" que funciona desde cualquier lugar
+::  VISOR — Instalador automático para Windows
+::  by Jasol Group · Saravena, Arauca, Colombia
 :: ============================================================
 title Visor - Instalador
 color 0A
 
 echo.
-echo  Instalando Visor...
+echo  ============================================================
+echo   VISOR - Monitor de Red v2.0 - by Jasol Group
+echo  ============================================================
 echo.
 
-:: Guardar ruta actual (donde esta el codigo)
-set VISOR_DIR=%~dp0
-:: Quitar la barra final
-if "%VISOR_DIR:~-1%"=="\" set VISOR_DIR=%VISOR_DIR:~0,-1%
-
-:: Detectar python
+:: Verificar Python
 python --version >nul 2>&1
 if errorlevel 1 (
-    echo  [ERROR] Python no encontrado. Instala Python 3.10+ desde python.org
+    echo  [ERROR] Python no encontrado.
+    echo  Descargalo en: https://www.python.org/downloads/
+    pause & exit /b 1
+)
+for /f "tokens=2" %%v in ('python --version 2^>^&1') do set PYVER=%%v
+echo  [OK] Python %PYVER%
+
+:: Ruta del codigo
+set VISOR_DIR=%~dp0
+if "%VISOR_DIR:~-1%"=="\" set VISOR_DIR=%VISOR_DIR:~0,-1%
+
+:: Crear comando visor en WindowsApps (siempre en PATH, sin admin)
+set DESTINO=%USERPROFILE%\AppData\Local\Microsoft\WindowsApps\visor.bat
+echo @echo off > "%DESTINO%"
+echo python "%VISOR_DIR%\main.py" %* >> "%DESTINO%"
+
+if exist "%DESTINO%" (
+    echo  [OK] Comando "visor" instalado.
+) else (
+    echo  [ERROR] No se pudo crear el comando.
     pause & exit /b 1
 )
 
-:: Crear el archivo visor.bat en System32 (requiere admin) o en AppData
-set DESTINO=%USERPROFILE%\AppData\Local\Microsoft\WindowsApps\visor.bat
-
-echo @echo off > "%DESTINO%"
-echo python "%VISOR_DIR%\main.py" %%* >> "%DESTINO%"
-
-if exist "%DESTINO%" (
-    echo  [OK] Comando "visor" instalado en: %DESTINO%
-) else (
-    echo  [AVISO] No se pudo instalar en WindowsApps. Intentando metodo alternativo...
-    goto metodo2
-)
-goto fin
-
-:metodo2
-:: Crear en carpeta del usuario y agregar al PATH
-set DESTINO2=%USERPROFILE%\visor.bat
-echo @echo off > "%DESTINO2%"
-echo python "%VISOR_DIR%\main.py" %%* >> "%DESTINO2%"
-
-:: Agregar carpeta del usuario al PATH
-for /f "skip=2 tokens=3*" %%a in ('reg query "HKCU\Environment" /v PATH 2^>nul') do set UPATH=%%a %%b
-if not defined UPATH set UPATH=%USERPROFILE%
-setx PATH "%UPATH%;%USERPROFILE%" >nul
-echo  [OK] Comando "visor" instalado en: %DESTINO2%
-echo  [!] Cierra y abre una nueva terminal para que el PATH se actualice.
-goto fin
-
-:fin
 echo.
 echo  ============================================================
-echo   LISTO. Abre una nueva terminal CMD y escribe: visor
+echo   LISTO. Abre una nueva terminal y escribe: visor
+echo.
+echo     visor               - Menu principal
+echo     visor --scan        - Escaneo rapido
+echo     visor --web         - Servicios web
+echo     visor --internet    - Test de internet
+echo     visor --setup       - Configuracion
+echo     visor --report      - Ultimo reporte
 echo  ============================================================
 echo.
 pause

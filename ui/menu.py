@@ -39,7 +39,7 @@ def menu_principal():
         elif opcion == "7":
             _configuracion_rapida()
         elif opcion == "0":
-            print(f"\n  {dim('Visor · Jasol Group · Ing. Jeisson Alberto Sarmiento')}\n")
+            print(f"\n  {dim('Creado por Ing. Jeisson Alberto Sarmiento  ·  Jasol Group  ·  Saravena, Arauca, Colombia')}\n")
             break
         else:
             print(f"\n  {warn('Opción inválida. Intenta de nuevo.')}")

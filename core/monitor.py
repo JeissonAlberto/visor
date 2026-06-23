@@ -155,16 +155,24 @@ def escanear_dispositivos(dispositivos: list | None = None) -> list:
     if not tiene_config_real:
         dispositivos = _descubrir_dispositivos_red()
 
-    resultados = []
-    for dev in dispositivos:
-        ip, metodo = _resolver_direccion(dev)
+    # Optimizacion: Si hay dispositivos por MAC sin IP conocida, 
+    # hacemos un escaneo rápido del rango para poblar la tabla ARP.
+    necesita_arp = any(d.get("mac") and not d.get("ip") for d in dispositivos)
+    if necesita_arp:
+        _, _, rango = detectar_red_local()
+        # Escaneo ultra-rápido (timeout bajo) solo para refrescar ARP
+        escanear_rango(rango, max_workers=100)
 
+    resultados = []
+    # Usar hilos para escanear dispositivos LAN en paralelo y optimizar tiempo
+    def procesar_dispositivo(dev):
+        ip, metodo = _resolver_direccion(dev)
         if ip:
             online, lat = hacer_ping(ip, count=PING_COUNT, timeout=PING_TIMEOUT)
         else:
             online, lat = False, None
 
-        resultado = {
+        return {
             "nombre":   dev.get("nombre", "Host"),
             "ip":       ip or "—",
             "mac":      dev.get("mac", ""),
@@ -176,7 +184,9 @@ def escanear_dispositivos(dispositivos: list | None = None) -> list:
             "metodo":   metodo,
             "ts":       datetime.now().isoformat(timespec="seconds"),
         }
-        resultados.append(resultado)
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
+        resultados = list(executor.map(procesar_dispositivo, dispositivos))
 
     return resultados
 
@@ -185,7 +195,7 @@ def escanear_dispositivos(dispositivos: list | None = None) -> list:
 
 def monitoreo_continuo(intervalo: int = 60, callback=None):
     """
-    Monitoreo continuo. Detecta la red automáticamente si no hay config manual.
+    Monitoreo continuo optimizado para modo NOC Dashboard.
     """
     import time
     from core.colores import ok, fallo, info, warn, dim, separador, resaltar
@@ -193,12 +203,8 @@ def monitoreo_continuo(intervalo: int = 60, callback=None):
     estados_anteriores: dict = {}
     ciclo = 0
 
-    # Detectar red una sola vez al inicio
-    tiene_config_real = any(
-        d.get("ip","").strip() or d.get("mac","").strip()
-        for d in DISPOSITIVOS
-    )
-
+    # Detectar red una sola vez al inicio si no hay config
+    tiene_config_real = any(d.get("ip","").strip() or d.get("mac","").strip() for d in DISPOSITIVOS)
     if not tiene_config_real:
         print(f"\n  {info('Detectando red local automáticamente...')}")
         ip_local, gateway, rango = detectar_red_local()
@@ -206,11 +212,19 @@ def monitoreo_continuo(intervalo: int = 60, callback=None):
 
     while True:
         ciclo += 1
-        separador("Ciclo " + str(ciclo) + " — " + datetime.now().strftime("%H:%M:%S"))
+        t_inicio = time.time()
+        ahora = datetime.now().strftime("%H:%M:%S")
+        separador(f"Ciclo {ciclo} — {ahora}")
 
-        # ── Dispositivos LAN ──────────────────────────────────────
+        # ── 1. Escaneo de dispositivos LAN (Multithreaded) ─────────
         resultados = escanear_dispositivos()
-        caidos = []
+        caidos_lan = []
+        
+        # Mostrar resumen de LAN primero
+        up_lan = sum(1 for r in resultados if r["online"])
+        tot_lan = len(resultados)
+        color_lan = ok if up_lan == tot_lan else (warn if up_lan > 0 else fallo)
+        print(f"  Red LAN: {color_lan(f'{up_lan}/{tot_lan} dispositivos activos')}")
 
         for r in resultados:
             nombre   = r["nombre"]
@@ -218,56 +232,59 @@ def monitoreo_continuo(intervalo: int = 60, callback=None):
             anterior = estados_anteriores.get(nombre)
 
             if estado == "UP":
-                lat_s = str(r["latencia"]) + " ms" if r["latencia"] else "—"
-                print(ok(nombre + " (" + r["ip"] + ") — " + lat_s))
+                # En modo dashboard solo mostramos detalles si el usuario quiere o si cambió de estado
+                # pero para Jeisson, mostramos una lista compacta
+                lat_s = f"{r['latencia']}ms" if r["latencia"] else "—"
+                print(f"    {ok('●')} {nombre:<20} {r['ip']:<15} {dim(lat_s)}")
+                
                 if anterior == "DOWN":
                     enviar_alerta(tipo="recuperado", nombre=nombre, ip=r["ip"],
-                                  detalles="Latencia: " + str(r["latencia"]) + " ms")
+                                  detalles=f"Recuperado a las {ahora}. Latencia: {lat_s}")
             else:
-                print(fallo(nombre + " (" + r["ip"] + ") — Sin respuesta"))
-                caidos.append(nombre)
+                print(f"    {fallo('●')} {nombre:<20} {r['ip']:<15} {fallo('SIN RESPUESTA')}")
+                caidos_lan.append(nombre)
                 if anterior != "DOWN":
                     enviar_alerta(tipo="caida", nombre=nombre, ip=r["ip"],
-                                  detalles="No responde a ping")
+                                  detalles=f"Caída detectada a las {ahora}")
 
             estados_anteriores[nombre] = estado
 
-        # ── Servicios web ─────────────────────────────────────────
+        # ── 2. Servicios web ─────────────────────────────────────────
         try:
             from core.web_service import escanear_por_categorias
-            print()
+            print(f"\n  Servicios Web:")
             categorias = escanear_por_categorias()
             web_caidos = []
             for cat, servicios in categorias.items():
-                up  = sum(1 for s in servicios if s.get("online"))
-                tot = len(servicios)
-                color_cat = ok if up == tot else (warn if up > 0 else fallo)
-                print("  " + cat + "  " + color_cat(str(up) + "/" + str(tot)))
-                for s in servicios:
-                    if not s.get("online"):
-                        web_caidos.append(s.get("nombre","?"))
-                        print("    " + fallo(s.get("nombre","?") + " — DOWN"))
-            if web_caidos:
-                caidos += ["WEB:" + n for n in web_caidos]
+                up_w  = sum(1 for s in servicios if s.get("online"))
+                tot_w = len(servicios)
+                color_cat = ok if up_w == tot_w else (warn if up_w > 0 else fallo)
+                
+                # Vista compacta por categoría
+                print(f"    {cat:<22} {color_cat(f'{up_w}/{tot_w}')}", end=" ")
+                # Solo mostrar fallos específicos
+                caidos_en_cat = [s.get("nombre") for s in servicios if not s.get("online")]
+                if caidos_en_cat:
+                    web_caidos.extend(caidos_en_cat)
+                    print(fallo(f" (Falla: {', '.join(caidos_en_cat)})"))
+                else:
+                    print(ok(" ONLINE"))
+                    
         except Exception as e:
-            print("  " + warn("Servicios web: error al verificar (" + str(e) + ")"))
+            print("  " + warn(f"Servicios web: error ({e})"))
 
+        # ── 3. Resumen y espera ────────────────────────────────────
+        t_total = round(time.time() - t_inicio, 1)
+        print(f"\n  {dim(f'Escaneo completado en {t_total}s')}")
+        
         if callback:
             callback(resultados)
 
-        up_lan = len(resultados) - len([c for c in caidos if not c.startswith("WEB:")])
-        print("\n  " + resaltar(str(up_lan) + "/" + str(len(resultados)) + " dispositivos LAN en línea"))
-
-        caidos_lan = [c for c in caidos if not c.startswith("WEB:")]
-        caidos_web = [c[4:] for c in caidos if c.startswith("WEB:")]
-        if caidos_lan:
-            print("  " + warn("LAN caídos: " + ", ".join(caidos_lan)))
-        if caidos_web:
-            print("  " + warn("Web caídos: " + ", ".join(caidos_web)))
-
-        print("\n  " + dim("Próximo ciclo en " + str(intervalo) + "s... (Ctrl+C para salir)"))
+        espera = max(1, intervalo - int(t_total))
+        print(f"  {dim(f'Próximo ciclo en {espera}s... (Ctrl+C para salir)')}")
+        
         try:
-            time.sleep(intervalo)
+            time.sleep(espera)
         except KeyboardInterrupt:
-            print("\n\n  Monitoreo detenido.\n")
+            print(f"\n\n  {resaltar('Monitoreo detenido por el usuario.')}\n")
             break

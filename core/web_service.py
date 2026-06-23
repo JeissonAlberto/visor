@@ -44,61 +44,83 @@ SERVICIOS_BUILTIN = {
 
 # ── Verificación HTTP ─────────────────────────────────────────────────────
 
+# Contexto SSL global para reutilización y ahorro de overhead
+_SSL_CONTEXT = None
+
 def _ssl_ctx():
-    ctx = ssl.create_default_context()
-    ctx.check_hostname = False
-    ctx.verify_mode    = ssl.CERT_NONE
-    return ctx
+    global _SSL_CONTEXT
+    if _SSL_CONTEXT is None:
+        _SSL_CONTEXT = ssl.create_default_context()
+        _SSL_CONTEXT.check_hostname = False
+        _SSL_CONTEXT.verify_mode    = ssl.CERT_NONE
+    return _SSL_CONTEXT
 
 
 def verificar_url(url: str, timeout: int = 5) -> dict:
     """
-    Verifica una URL optimizando para medir solo el inicio de la respuesta (TTFB).
-    Usa un User-Agent moderno para evitar demoras de seguridad en CDNs.
+    Verifica una URL optimizando para medir tanto latencia de red (TCP) como 
+    tiempo de respuesta web (TTFB).
     """
-    t0  = time.monotonic()
+    from urllib.parse import urlparse
+    parsed = urlparse(url)
+    host   = parsed.hostname
+    port   = parsed.port or (443 if parsed.scheme == "https" else 80)
+    
+    t_red = None
+    t0    = time.monotonic()
+    
+    # 1. Medir latencia de red pura (TCP Handshake) - similar al ping
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(timeout)
+        t_sock = time.monotonic()
+        sock.connect((host, port))
+        t_red  = round((time.monotonic() - t_sock) * 1000, 1)
+        sock.close()
+    except Exception:
+        pass
+
+    # 2. Medir tiempo de respuesta Web (HTTP/SSL)
     ctx = _ssl_ctx()
     try:
-        # User-Agent de navegador moderno para evitar penalizaciones de CDNs (Cloudflare/Akamai)
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "Accept-Language": "en-US,en;q=0.5",
-            "Connection": "close" # No mantener abierta para medir latencia de cierre
+            "Accept": "*/*",
+            "Connection": "close"
         }
         req = urllib.request.Request(url, headers=headers)
         
-        # Usamos urlopen pero cerramos inmediatamente tras leer el encabezado
         with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
-            # Medimos latencia hasta que recibimos los encabezados (TTFB aproximado)
-            lat = round((time.monotonic() - t0) * 1000, 1)
+            lat_web = round((time.monotonic() - t0) * 1000, 1)
             return {
                 "url":      url,
                 "online":   True,
                 "estado":   "UP",
                 "http":     resp.status,
-                "latencia": lat,
+                "latencia": lat_web,
+                "lat_red":  t_red,
                 "error":    None,
             }
     except urllib.error.HTTPError as e:
-        lat = round((time.monotonic() - t0) * 1000, 1)
-        # Muchos servicios retornan 403 o 405 si no les gusta el bot, pero siguen UP
+        lat_web = round((time.monotonic() - t0) * 1000, 1)
         return {
             "url":      url,
             "online":   e.code < 500,
             "estado":   "UP" if e.code < 500 else "DOWN",
             "http":     e.code,
-            "latencia": lat,
+            "latencia": lat_web,
+            "lat_red":  t_red,
             "error":    str(e.reason),
         }
     except Exception as e:
-        lat = round((time.monotonic() - t0) * 1000, 1)
+        lat_web = round((time.monotonic() - t0) * 1000, 1)
         return {
             "url":      url,
             "online":   False,
             "estado":   "DOWN",
             "http":     None,
-            "latencia": lat,
+            "latencia": lat_web,
+            "lat_red":  t_red,
             "error":    str(e)[:80],
         }
 

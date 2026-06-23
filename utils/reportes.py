@@ -60,12 +60,13 @@ def leer_ultimo_reporte() -> str:
 
 
 def _formato_txt(datos: dict) -> str:
+    from config.settings import VERSION, AUTOR, ORGANIZATION, UBICACION
     ts = datos.get("ts", datetime.now().isoformat())
     lineas = [
         "════════════════════════════════════════════",
-        "  VISOR — Monitor de Red v2.0",
-        "  Creado por Ing. Jeisson Alberto Sarmiento",
-        "  Jasol Group  ·  Saravena, Arauca, Colombia",
+        f"  VISOR — Monitor de Red v{VERSION}",
+        f"  Creado por {AUTOR}",
+        f"  {ORGANIZATION}  ·  {UBICACION}",
         f"  Reporte: {ts}",
         "════════════════════════════════════════════",
         "",
@@ -130,6 +131,6 @@ def _formato_txt(datos: dict) -> str:
         lineas.append("")
 
     lineas.append("════════════════════════════════════════════")
-    lineas.append("Visor v2.0  ·  Creado por Ing. Jeisson Alberto Sarmiento")
-    lineas.append("Jasol Group  ·  Saravena, Arauca, Colombia")
+    lineas.append(f"Visor v{VERSION}  ·  Creado por {AUTOR}")
+    lineas.append(f"{ORGANIZATION}  ·  {UBICACION}")
     return "\n".join(lineas)

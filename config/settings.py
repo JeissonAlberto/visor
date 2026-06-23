@@ -3,8 +3,8 @@
 #  Edita este archivo para personalizar Visor
 # ─────────────────────────────────────────────
 
-VERSION      = "2.1.0"
-APP_NAME     = "Visor"
+VERSION      = "2.1.3"
+APP_NAME     = "Visor v2.1"
 ORGANIZATION = "Jasol Group"
 AUTOR        = "Ing. Jeisson Alberto Sarmiento"
 UBICACION    = "Saravena, Arauca, Colombia"
@@ -13,8 +13,8 @@ UBICACION    = "Saravena, Arauca, Colombia"
 INTERVALO_MONITOREO = 60
 
 # ── Ping ──
-PING_COUNT   = 4       # paquetes por host
-PING_TIMEOUT = 2       # segundos de espera por ping
+PING_COUNT   = 3       # bajamos a 3 para optimizar velocidad sin perder precisión
+PING_TIMEOUT = 1       # bajamos a 1 para monitoreo LAN, es suficiente
 
 # ── Reportes ──
 GUARDAR_REPORTES  = True          # guardar reporte en /reports después de cada escaneo

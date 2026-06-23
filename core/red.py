@@ -16,11 +16,11 @@ from core.colores import dim
 
 def hacer_ping(host: str, count: int = 1, timeout: int = 2) -> tuple[bool, float | None]:
     """
-    Hace ping a un host. Devuelve (éxito, latencia_ms | None).
-    Funciona en Windows y Linux/macOS.
+    Hace ping a un host de forma robusta.
     """
     sistema = platform.system().lower()
     if sistema == "windows":
+        # -n paquetes, -w espera en ms
         cmd = ["ping", "-n", str(count), "-w", str(timeout * 1000), host]
     else:
         cmd = ["ping", "-c", str(count), "-W", str(timeout), host]
@@ -33,25 +33,41 @@ def hacer_ping(host: str, count: int = 1, timeout: int = 2) -> tuple[bool, float
             text=True,
             timeout=timeout + 2
         )
-        if resultado.returncode != 0:
+        
+        output = resultado.stdout
+        # En Windows, el returncode puede ser 0 incluso si falla el destino
+        # Buscamos patrones de éxito
+        exito = False
+        if sistema == "windows":
+            # Si hay TTL es que respondió el host
+            if "TTL=" in output.upper():
+                exito = True
+        else:
+            if "bytes from" in output.lower():
+                exito = True
+        
+        if not exito and resultado.returncode == 0 and "ms" in output.lower():
+            exito = True # Fallback por si acaso
+            
+        if not exito:
             return False, None
 
-        # Extraer latencia del output
-        lat = _extraer_latencia(resultado.stdout)
+        lat = _extraer_latencia(output)
         return True, lat
-    except (subprocess.TimeoutExpired, FileNotFoundError):
+    except Exception:
         return False, None
 
 
 def _extraer_latencia(output: str) -> float | None:
-    """Extrae la latencia promedio del output de ping."""
+    """Extrae la latencia del output de ping usando regex robusto."""
+    # Intentar buscar el tiempo individual o promedio
     patrones = [
-        r"tiempo[=<]\s*([\d.]+)\s*ms",          # Windows ES
-        r"time[=<]\s*([\d.]+)\s*ms",             # Linux/macOS
-        r"Average\s*=\s*([\d.]+)ms",             # Windows EN
-        r"avg.*?=\s*[\d.]+/([\d.]+)/",           # Linux rtt avg
-        r"media[=<]\s*([\d.]+)\s*ms",            # Windows variante
+        r"(?:tiempo|time)[=<]([\d.]+)\s*ms",
+        r"media[=<]([\d.]+)\s*ms",
+        r"Average\s*=\s*([\d.]+)ms",
+        r"avg.*?=\s*[\d.]+/([\d.]+)/",
     ]
+    
     for p in patrones:
         m = re.search(p, output, re.IGNORECASE)
         if m:
@@ -59,9 +75,14 @@ def _extraer_latencia(output: str) -> float | None:
                 return float(m.group(1))
             except ValueError:
                 pass
-    # Fallback: buscar cualquier número seguido de ms
+    
+    # Fallback final
     m = re.search(r"([\d.]+)\s*ms", output, re.IGNORECASE)
-    return float(m.group(1)) if m else None
+    if m:
+        try: return float(m.group(1))
+        except: pass
+        
+    return None
 
 
 # ── ARP ───────────────────────────────────────────────────────────────────
@@ -79,22 +100,24 @@ def obtener_tabla_arp() -> str:
 
 
 def buscar_ip_por_mac(mac_objetivo: str) -> str | None:
-    """Busca la IP asociada a una MAC en la tabla ARP local."""
+    """Busca la IP asociada a una MAC en la tabla ARP local de forma flexible."""
     mac_norm = normalizar_mac(mac_objetivo)
+    if not mac_norm: return None
+    
     tabla = obtener_tabla_arp()
     for linea in tabla.splitlines():
-        if "-" in linea or ":" in linea:
-            partes = linea.split()
-            if len(partes) >= 2:
-                ip = partes[0]
-                mac_linea = normalizar_mac(partes[1] if len(partes) > 1 else "")
-                if mac_linea == mac_norm:
-                    # Validar que es una IP válida
-                    try:
-                        socket.inet_aton(ip)
-                        return ip
-                    except Exception:
-                        pass
+        linea = linea.lower().strip()
+        if mac_norm[:4] in linea.replace("-", "").replace(":", ""): # pre-filtro rápido
+            partes = re.findall(r"[\d.]+|[0-9a-f]{2}[:-][0-9a-f]{2}[:-][0-9a-f]{2}[:-][0-9a-f]{2}[:-][0-9a-f]{2}[:-][0-9a-f]{2}", linea)
+            
+            # Buscamos algo que parezca IP y algo que parezca la MAC normalizada
+            ip_encontrada = None
+            for p in partes:
+                if "." in p and p.count(".") == 3:
+                    ip_encontrada = p
+                elif normalizar_mac(p) == mac_norm:
+                    if ip_encontrada:
+                        return ip_encontrada
     return None
 
 

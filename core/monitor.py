@@ -15,10 +15,10 @@ from config.settings import PING_COUNT, PING_TIMEOUT
 
 # ── Detección automática de red ───────────────────────────────────────────
 
-def detectar_red_local() -> tuple[str, str]:
+def detectar_red_local() -> tuple[str, str, str]:
     """
-    Detecta la IP local y el gateway.
-    Devuelve (ip_local, rango_cidr) ej: ("192.168.1.5", "192.168.1.0/24")
+    Detecta la IP local, el gateway y el rango CIDR.
+    Devuelve (ip_local, gateway, rango_cidr) ej: ("192.168.1.5", "192.168.1.1", "192.168.1.0/24")
     """
     import subprocess, platform, re
 

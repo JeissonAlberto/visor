@@ -67,7 +67,7 @@ def _ping_latencias(host: str, count: int = 4) -> list[float]:
         for v in lats:
             try:
                 val = float(v)
-                if val > 0: valores.append(val)
+                if val >= 0: valores.append(val)
             except ValueError:
                 pass
         
@@ -259,10 +259,13 @@ def test_internet(count: int | None = None) -> dict:
     for nombre, host in HOSTS_REFERENCIA:
         lats = _ping_latencias(host, count=count)
         perdidos = max(0, count - len(lats))
+        avg_h = round(statistics.mean(lats), 1) if lats else None
+        
         resultados_hosts.append({
             "host":     host,
             "nombre":   nombre,
             "lats":     lats,
+            "latencia": avg_h,
             "perdidos": perdidos,
         })
         todas_lats.extend(lats)

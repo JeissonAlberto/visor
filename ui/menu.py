@@ -114,12 +114,19 @@ def _menu_web():
         for s in servicios:
             nombre = s["nombre"]
             online = s.get("online")
-            lat    = s.get("latencia")
+            lat_web = s.get("latencia")
+            lat_red = s.get("lat_red")
             http   = s.get("http", "—")
-            lat_s  = f"{lat:.1f} ms" if lat else "—"
-            lat_c  = "✅" if lat and lat < 400 else "⚠️ "
+            
+            # Formato de latencia: [Red -> Web]
+            lat_s = f"{lat_web:.0f}ms" if lat_web else "—"
+            if lat_red:
+                lat_s = f"{lat_red:.0f}ms -> {lat_web:.0f}ms"
+            
+            color_web = ok if lat_web and lat_web < 400 else warn
             estado = ok("  UP  ") if online else fallo(" DOWN ")
-            print(f"  {nombre:<{ancho}} [{estado}]  HTTP {http}  {lat_c} {lat_s}")
+            
+            print(f"  {nombre:<{ancho}} [{estado}]  HTTP {http:<4}  {color_web(lat_s)}")
 
     separador()
     print(f"  TOTAL:  {ok(str(total_up) + '/' + str(total_tot) + ' servicios activos') if total_up == total_tot else warn(str(total_up) + '/' + str(total_tot) + ' servicios activos')}")

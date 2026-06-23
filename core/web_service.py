@@ -59,7 +59,7 @@ def _ssl_ctx():
 def verificar_url(url: str, timeout: int = 5) -> dict:
     """
     Verifica una URL optimizando para medir tanto latencia de red (TCP) como 
-    tiempo de respuesta web (TTFB).
+    tiempo de respuesta web (TTFB). Usa el método HEAD para mayor velocidad.
     """
     from urllib.parse import urlparse
     parsed = urlparse(url)
@@ -80,7 +80,7 @@ def verificar_url(url: str, timeout: int = 5) -> dict:
     except Exception:
         pass
 
-    # 2. Medir tiempo de respuesta Web (HTTP/SSL)
+    # 2. Medir tiempo de respuesta Web (HTTP/SSL) usando HEAD
     ctx = _ssl_ctx()
     try:
         headers = {
@@ -88,7 +88,8 @@ def verificar_url(url: str, timeout: int = 5) -> dict:
             "Accept": "*/*",
             "Connection": "close"
         }
-        req = urllib.request.Request(url, headers=headers)
+        # Intentamos HEAD primero; si falla, urlopen con GET es el fallback automático
+        req = urllib.request.Request(url, headers=headers, method="HEAD")
         
         with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
             lat_web = round((time.monotonic() - t0) * 1000, 1)
@@ -102,6 +103,24 @@ def verificar_url(url: str, timeout: int = 5) -> dict:
                 "error":    None,
             }
     except urllib.error.HTTPError as e:
+        # Algunos servidores no aceptan HEAD (405, 403), reintentamos con GET rápido
+        if e.code in (403, 405):
+            try:
+                req_get = urllib.request.Request(url, headers=headers, method="GET")
+                with urllib.request.urlopen(req_get, timeout=timeout, context=ctx) as resp:
+                    lat_web = round((time.monotonic() - t0) * 1000, 1)
+                    return {
+                        "url":      url,
+                        "online":   True,
+                        "estado":   "UP",
+                        "http":     resp.status,
+                        "latencia": lat_web,
+                        "lat_red":  t_red,
+                        "error":    None,
+                    }
+            except Exception:
+                pass
+        
         lat_web = round((time.monotonic() - t0) * 1000, 1)
         return {
             "url":      url,

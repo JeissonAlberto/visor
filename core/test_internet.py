@@ -47,26 +47,36 @@ def _ping_latencias(host: str, count: int = 4) -> list[float]:
     """Devuelve lista de latencias individuales en ms."""
     sistema = platform.system().lower()
     if sistema == "windows":
-        cmd = ["ping", "-n", str(count), "-w", "2000", host]
+        # -n paquetes, -w espera (ms)
+        cmd = ["ping", "-n", str(count), "-w", "1000", host]
     else:
-        cmd = ["ping", "-c", str(count), "-W", "2", host]
+        cmd = ["ping", "-c", str(count), "-W", "1", host]
 
     try:
         r = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                           text=True, timeout=count * 3 + 2)
+                           text=True, timeout=count * 2 + 2)
         salida = r.stdout
+        # Regex compatible con Windows (español/inglés) y Linux
         lats = re.findall(r"(?:tiempo|time)[=<]([\d.]+)\s*ms", salida, re.IGNORECASE)
+        
+        # Fallback para formatos sin 'ms' o separadores diferentes
+        if not lats:
+            lats = re.findall(r"(?:tiempo|time)[=<]([\d.]+)", salida, re.IGNORECASE)
+
         valores = []
         for v in lats:
-            if v:
-                try:
-                    valores.append(float(v))
-                except ValueError:
-                    pass
+            try:
+                val = float(v)
+                if val > 0: valores.append(val)
+            except ValueError:
+                pass
+        
+        # Fallback final: buscar estadísticas si no hay individuales
         if not valores:
-            m = re.search(r"([\d.]+)/([\d.]+)/([\d.]+)", salida)
+            m = re.search(r"(?:Media|Average) = ([\d.]+)ms", salida, re.IGNORECASE)
             if m:
-                return [float(m.group(1)), float(m.group(2)), float(m.group(3))]
+                return [float(m.group(1))] * count
+                
         return valores
     except Exception:
         return []

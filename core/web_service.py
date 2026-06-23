@@ -144,32 +144,39 @@ def escanear_servicios_web(servicios: list | None = None) -> list:
 
 def escanear_por_categorias() -> dict:
     """
-    Verifica todos los servicios agrupados por categoría.
-    Devuelve dict {categoria: [resultados]}.
+    Verifica todos los servicios agrupados por categoría de forma concurrente
+    usando hilos para disminuir el tiempo total y mejorar la precisión.
     """
     import datetime
-    categorias = {}
-
+    from concurrent.futures import ThreadPoolExecutor
+    
     # Cargar "Mis Servicios" desde config
     mis = list(SERVICIOS_WEB)
     SERVICIOS_BUILTIN["Mis Servicios"] = mis
 
+    # Preparar lista plana de tareas
+    tareas = []
     for cat, servicios in SERVICIOS_BUILTIN.items():
-        if not servicios:
-            continue
-        resultados = []
         for svc in servicios:
-            url    = svc.get("url", "").strip()
-            nombre = svc.get("nombre", url)
-            if not url:
-                continue
-            r = verificar_url(url)
-            r["nombre"] = nombre
-            r["ts"]     = datetime.datetime.now().isoformat(timespec="seconds")
-            resultados.append(r)
-        categorias[cat] = resultados
+            url = svc.get("url", "").strip()
+            if url:
+                tareas.append((cat, svc))
 
-    return categorias
+    # Ejecutar en paralelo (máximo 15 hilos para no saturar)
+    def _tarea_verificar(item):
+        cat, svc = item
+        r = verificar_url(svc["url"])
+        r["nombre"] = svc.get("nombre", svc["url"])
+        r["ts"]     = datetime.datetime.now().isoformat(timespec="seconds")
+        return cat, r
+
+    categorias = {c: [] for c in SERVICIOS_BUILTIN.keys() if SERVICIOS_BUILTIN[c] or c == "Mis Servicios"}
+    
+    with ThreadPoolExecutor(max_workers=15) as executor:
+        for cat, resultado in executor.map(_tarea_verificar, tareas):
+            categorias[cat].append(resultado)
+
+    return {k: v for k, v in categorias.items() if v}
 
 
 # ── Geolocalización de IP ─────────────────────────────────────────────────

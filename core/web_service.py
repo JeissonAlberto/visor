@@ -51,16 +51,26 @@ def _ssl_ctx():
     return ctx
 
 
-def verificar_url(url: str, timeout: int = 6) -> dict:
-    """Verifica una URL. Devuelve estado, código HTTP y latencia."""
+def verificar_url(url: str, timeout: int = 5) -> dict:
+    """
+    Verifica una URL optimizando para medir solo el inicio de la respuesta (TTFB).
+    Usa un User-Agent moderno para evitar demoras de seguridad en CDNs.
+    """
     t0  = time.monotonic()
     ctx = _ssl_ctx()
     try:
-        req = urllib.request.Request(
-            url,
-            headers={"User-Agent": "Visor-Monitor/2.0"}
-        )
+        # User-Agent de navegador moderno para evitar penalizaciones de CDNs (Cloudflare/Akamai)
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.5",
+            "Connection": "close" # No mantener abierta para medir latencia de cierre
+        }
+        req = urllib.request.Request(url, headers=headers)
+        
+        # Usamos urlopen pero cerramos inmediatamente tras leer el encabezado
         with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
+            # Medimos latencia hasta que recibimos los encabezados (TTFB aproximado)
             lat = round((time.monotonic() - t0) * 1000, 1)
             return {
                 "url":      url,
@@ -72,6 +82,7 @@ def verificar_url(url: str, timeout: int = 6) -> dict:
             }
     except urllib.error.HTTPError as e:
         lat = round((time.monotonic() - t0) * 1000, 1)
+        # Muchos servicios retornan 403 o 405 si no les gusta el bot, pero siguen UP
         return {
             "url":      url,
             "online":   e.code < 500,

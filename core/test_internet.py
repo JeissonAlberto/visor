@@ -55,10 +55,9 @@ def _ping_latencias(host: str, count: int = 4) -> list[float]:
         r = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                            text=True, timeout=count * 3 + 2)
         salida = r.stdout
-        lats = re.findall(r"tiempo[=<]([\d.]+)\s*ms|time[=<]([\d.]+)\s*ms", salida, re.IGNORECASE)
+        lats = re.findall(r"(?:tiempo|time)[=<]([\d.]+)\s*ms", salida, re.IGNORECASE)
         valores = []
-        for a, b in lats:
-            v = a or b
+        for v in lats:
             if v:
                 try:
                     valores.append(float(v))

@@ -167,7 +167,7 @@ def _menu_internet():
     _linea("Promedio:",           f"{lat_avg} ms" if lat_avg else "—",  lat_avg and lat_avg < 80)
     _linea("Mínima:",             f"{lat_min} ms" if lat_min else "—",  True)
     _linea("Máxima:",             f"{lat_max} ms" if lat_max else "—",  lat_max and lat_max < 150)
-    _linea("Jitter:",             f"{jitter} ms"  if jitter  else "—",  jitter  and jitter  < 20)
+    _linea("Jitter:",             f"{jitter} ms"  if jitter is not None else "—",  jitter is not None and jitter < 20)
     _linea("Pérdida de paquetes:",f"{perdida}%",                         perdida == 0)
     _linea("Pings OK / Total:",   f"{r.get('pings_ok')} / {r.get('total_pings')}", True)
 
@@ -190,8 +190,13 @@ def _menu_internet():
     print(f"\n  {resaltar('HOSTS DE REFERENCIA')}")
     for h in r.get("hosts", []):
         lat_h = h.get("latencia")
-        estado_h = ok(f"{lat_h} ms") if lat_h and lat_h < 100 else (warn(f"{lat_h} ms") if lat_h else fallo("Sin respuesta"))
-        print(f"  {h.get('nombre',''):<16} {h.get('ip',''):<12} {estado_h}")
+        ip_h  = h.get("host", "")
+        # Si no hay latencia pero lats tiene datos, usamos el primero (fallback)
+        if lat_h is None and h.get("lats"):
+            lat_h = h["lats"][0]
+            
+        estado_h = ok(f"{lat_h} ms") if lat_h and lat_h < 150 else (warn(f"{lat_h} ms") if lat_h else fallo("Sin respuesta"))
+        print(f"  {h.get('nombre',''):<16} {ip_h:<16} {estado_h}")
 
     separador()
     ruta = guardar_reporte({"ts": datetime.now().isoformat(), "internet": r})

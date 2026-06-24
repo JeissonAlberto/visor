@@ -138,33 +138,34 @@ def _resolver_direccion(dispositivo: dict) -> tuple:
 
 # ── Escaneo ───────────────────────────────────────────────────────────────
 
-def escanear_dispositivos(dispositivos: list | None = None) -> list:
+def escanear_dispositivos(dispositivos: list | None = None, auto_descubrir: bool = True) -> list:
     """
     Escanea la lista de dispositivos.
-    Si está vacía o no se pasa, descubre la red automáticamente.
+    Si auto_descubrir es True, además agrega dispositivos activos detectados en la red.
     """
     if not dispositivos:
-        dispositivos = DISPOSITIVOS
+        dispositivos = list(DISPOSITIVOS) # Copiar para no mutar global
 
-    # Si la config está vacía o solo tiene ejemplos sin IP/MAC útil,
-    # caer en detección automática
-    tiene_config_real = any(
-        d.get("ip","").strip() or d.get("mac","").strip()
-        for d in dispositivos
-    )
-    if not tiene_config_real:
-        dispositivos = _descubrir_dispositivos_red()
+    # 1. Detectar red actual para ver si los dispositivos configurados son coherentes
+    ip_local, gateway_real, rango_actual = detectar_red_local()
 
-    # Optimizacion: Si hay dispositivos por MAC sin IP conocida, 
-    # hacemos un escaneo rápido del rango para poblar la tabla ARP.
+    # 2. Si auto_descubrir está activo, mezclamos la config con lo que encontremos en vivo
+    if auto_descubrir:
+        en_vivo = _descubrir_dispositivos_red()
+        # Combinar evitando duplicados por IP
+        ips_configuradas = {d.get("ip") for d in dispositivos if d.get("ip")}
+        for d_vivo in en_vivo:
+            if d_vivo["ip"] not in ips_configuradas:
+                dispositivos.append(d_vivo)
+                ips_configuradas.add(d_vivo["ip"])
+
+    # Optimizacion ARP...
     necesita_arp = any(d.get("mac") and not d.get("ip") for d in dispositivos)
     if necesita_arp:
-        _, _, rango = detectar_red_local()
-        # Escaneo ultra-rápido (timeout bajo) solo para refrescar ARP
-        escanear_rango(rango, max_workers=100)
+        escanear_rango(rango_actual, max_workers=100)
 
+    # ...resto del procesamiento multihilo...
     resultados = []
-    # Usar hilos para escanear dispositivos LAN en paralelo y optimizar tiempo
     def procesar_dispositivo(dev):
         ip, metodo = _resolver_direccion(dev)
         if ip:

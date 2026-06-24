@@ -19,10 +19,10 @@ from setuptools import setup, find_packages
 
 setup(
     name="visor",
-    version="2.0.0",
+    version="2.1.3",
     description="Monitor de Red ligero para NOC/ISP — by Jasol Group",
-    author="Jasol Group",
-    author_email="jasol@example.com",
+    author="Ing. Jeisson Alberto Sarmiento",
+    author_email="jasolgroup@gmail.com",
     packages=find_packages(),
     python_requires=">=3.10",
     install_requires=[],

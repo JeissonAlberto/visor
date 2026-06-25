@@ -29,6 +29,7 @@ def menu_principal():
         print(f"  {resaltar('9.')} 🛡️   Auditoría de Seguridad (Metatron)")
         print(f"  {resaltar('A.')} 🔫  Arsenal de Comandos (Quick Support)")
         print(f"  {resaltar('B.')} 🩺  Diagnóstico de Salud (Jitter/Loss)")
+        print(f"  {resaltar('C.')} 🦖  Raptor Eye (Threat Hunting)")
         print(f"  {resaltar('0.')} ❌  Salir")
         separador()
 
@@ -45,6 +46,7 @@ def menu_principal():
         elif opcion == "9": _menu_auditoria_seguridad()
         elif opcion.upper() == "A": _menu_arsenal()
         elif opcion.upper() == "B": _menu_salud_red()
+        elif opcion.upper() == "C": _menu_raptor_eye()
         elif opcion == "0":
             print(f"\n  {dim('─'*50)}")
             print(f"  {dim('Creado por ' + AUTOR)}")
@@ -592,6 +594,52 @@ def _menu_salud_red():
     else:
         print(f"  {fallo('ERROR:')} El objetivo no responde a los pings.")
         
+    separador()
+    input(f"  {dim('Enter para continuar...')}")
+
+
+def _menu_raptor_eye():
+    from core.raptor_eye import hunt_vulnerabilities, scan_network_threats
+    from core.red import detectar_gateway
+    
+    separador("🦖 RAPTOR EYE: Inteligencia de Amenazas")
+    print(f"  {dim('Inspirado en RAPTOR AI - Pensamiento Adversario')}\n")
+    print(f"  {resaltar('1.')} Escaneo de un Objetivo Único")
+    print(f"  {resaltar('2.')} Búsqueda en Red Local (Threat Hunting)")
+    print(f"  {resaltar('0.')} Volver")
+    
+    op = input(f"\n  {info('Selecciona una modalidad:')} ").strip()
+    
+    if op == "1":
+        target = input(f"  {info('IP/Dominio del objetivo:')} ").strip()
+        if not target: return
+        print(f"\n  {naranja('Cazando vectores de ataque en')} {resaltar(target)}...")
+        findings = hunt_vulnerabilities(target)
+        
+        if findings:
+            print(f"\n  {fallo('¡ATENCIÓN!')} Se encontraron vectores críticos:\n")
+            for f in findings:
+                print(f"  [{fallo(f['risk'])}] Puerto {f['port']}: {f['desc']}")
+        else:
+            print(f"\n  {ok('No se detectaron vectores de ataque comunes.')}")
+            
+    elif op == "2":
+        gw = detectar_gateway() or "192.168.1.1"
+        prefix = ".".join(gw.split(".")[:-1])
+        print(f"\n  {naranja('Iniciando cacería en el segmento')} {resaltar(prefix+'.0/24')}...")
+        print(f"  {dim('Analizando hosts activos y sus servicios críticos...')}\n")
+        
+        results = scan_network_threats(prefix)
+        
+        if results:
+            print(f"  {titulo('REPORTE DE AMENAZAS EN RED')}")
+            for r in results:
+                print(f"\n  {resaltar(r['ip'])}:")
+                for t in r['threats']:
+                    print(f"    - {t['desc']} ({fallo(t['risk'])})")
+        else:
+            print(f"\n  {ok('Red limpia. No se encontraron vectores expuestos.')}")
+
     separador()
     input(f"  {dim('Enter para continuar...')}")
 

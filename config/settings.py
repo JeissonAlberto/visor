@@ -3,8 +3,8 @@
 #  Edita este archivo para personalizar Visor
 # ─────────────────────────────────────────────
 
-VERSION      = "2.7.0"
-APP_NAME     = "Visor v2.7 NOC Professional Edition"
+VERSION      = "2.8.0"
+APP_NAME     = "Visor v2.8 Raptor-Eye Edition"
 ORGANIZATION = "Jasol Group"
 AUTOR        = "Ing. Jeisson Alberto Sarmiento"
 UBICACION    = "Saravena, Arauca, Colombia"

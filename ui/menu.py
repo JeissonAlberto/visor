@@ -26,7 +26,7 @@ def menu_principal():
         print(f"  {resaltar('6.')} 📋  Ver último reporte")
         print(f"  {resaltar('7.')} 🔌  Info de interfaces de red")
         print(f"  {resaltar('8.')} 🌍  Geolocalizar IP pública")
-        print(f"  {resaltar('9.')} ⚙️   Configuración rápida")
+        print(f"  {resaltar('9.')} 🛡️   Auditoría de Seguridad (Metatron)")
         print(f"  {resaltar('0.')} ❌  Salir")
         separador()
 
@@ -40,7 +40,7 @@ def menu_principal():
         elif opcion == "6": _ver_reporte()
         elif opcion == "7": _info_interfaces()
         elif opcion == "8": _geolocalizacion_manual()
-        elif opcion == "9": _configuracion_rapida()
+        elif opcion == "9": _menu_auditoria_seguridad()
         elif opcion == "0":
             print(f"\n  {dim('─'*50)}")
             print(f"  {dim('Creado por ' + AUTOR)}")
@@ -425,6 +425,59 @@ def _configuracion_rapida():
   {dim('Luego reinicia Visor para aplicar los cambios.')}
 """)
     input(f"  {dim('Enter para volver...')}")
+
+
+def _menu_auditoria_seguridad():
+    from core.security import auditoria_completa
+    from utils.database import inicializar_db, guardar_sesion_seguridad, obtener_historial_reciente
+    
+    inicializar_db()
+    separador("🛡️ Auditoría de Seguridad (Motor Metatron)")
+    
+    # Mostrar historial reciente
+    historial = obtener_historial_reciente(3)
+    if historial:
+        print(f"  {dim('Historial reciente:')}")
+        for h in historial:
+            print(f"    {h[1]} | {h[2]} | {h[3]}")
+        print()
+
+    ip = input(f"  {info('Ingresa la IP o Dominio para auditar:')} ").strip()
+    if not ip: return
+
+    print(f"\n  {naranja('Ejecutando escaneo profundo de puertos y servicios...')}")
+    print(f"  {dim('Esto puede tardar unos segundos...')}\n")
+    
+    res = auditoria_completa(ip)
+    
+    # Mostrar Resultados
+    print(f"  Resultado para {resaltar(ip)}:")
+    print(f"  Riesgo General:  " + (fallo(res['riesgo_general']) if res['riesgo_general'] in ('ALTO','CRÍTICO') else (warn(res['riesgo_general']) if res['riesgo_general'] == 'MEDIO' else ok(res['riesgo_general']))))
+    print(f"  Puertos Abiertos: {res['total_abiertos']}")
+    separador()
+    
+    if res['puertos_abiertos']:
+        p_head = azul("PORT")
+        s_head = azul("SERVICE")
+        r_head = azul("RISK")
+        i_head = azul("INFO")
+        print(f"  {p_head:<18} {s_head:<22} {r_head:<18} {i_head}")
+        for p in res['puertos_abiertos']:
+            r_color = fallo if p['riesgo'] in ('ALTO','CRÍTICO') else (warn if p['riesgo'] == 'MEDIO' else ok)
+            p_str = str(p['puerto'])
+            s_str = p['servicio']
+            r_str = r_color(p['riesgo'])
+            d_str = dim(p['descripcion'])
+            print(f"  {p_str:<8} {s_str:<12} {r_str:<18} {d_str}")
+    else:
+        print(f"  {ok('No se detectaron puertos abiertos comunes.')}")
+    
+    # Guardar en DB
+    sesion_id = guardar_sesion_seguridad(ip, res)
+    print(f"\n  {dim(f'Auditoría guardada en base de datos local (Sesión ID: {sesion_id})')}")
+    
+    separador()
+    input(f"  {dim('Enter para continuar...')}")
 
 
 # ── CLI directo (flags) ───────────────────────────────────────────────────

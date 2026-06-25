@@ -30,6 +30,7 @@ def menu_principal():
         print(f"  {resaltar('A.')} 🔫  Arsenal de Comandos (Quick Support)")
         print(f"  {resaltar('B.')} 🩺  Diagnóstico de Salud (Jitter/Loss)")
         print(f"  {resaltar('C.')} 🦖  Raptor Eye (Threat Hunting)")
+        print(f"  {resaltar('G.')} 🛡️  Guardian AI (Pentest Assistant)")
         print(f"  {resaltar('0.')} ❌  Salir")
         separador()
 
@@ -47,6 +48,7 @@ def menu_principal():
         elif opcion.upper() == "A": _menu_arsenal()
         elif opcion.upper() == "B": _menu_salud_red()
         elif opcion.upper() == "C": _menu_raptor_eye()
+        elif opcion.upper() == "G": _menu_guardian_ai()
         elif opcion == "0":
             print(f"\n  {dim('─'*50)}")
             print(f"  {dim('Creado por ' + AUTOR)}")
@@ -639,6 +641,35 @@ def _menu_raptor_eye():
                     print(f"    - {t['desc']} ({fallo(t['risk'])})")
         else:
             print(f"\n  {ok('Red limpia. No se encontraron vectores expuestos.')}")
+
+    separador()
+    input(f"  {dim('Enter para continuar...')}")
+
+
+def _menu_guardian_ai():
+    from core.raptor_eye import hunt_vulnerabilities
+    from core.guardian_ai import generate_remediation_plan
+    
+    separador("🛡️ GUARDIAN AI: Orquestador de Pentesting")
+    print(f"  {dim('IA de Remediación Basada en Flujos - Jasol Group')}\n")
+    
+    target = input(f"  {info('IP del host para análisis profundo:')} ").strip()
+    if not target: return
+    
+    print(f"\n  {naranja('1. [Raptor] Auditando superficies...')}")
+    findings = hunt_vulnerabilities(target)
+    
+    if not findings:
+        print(f"  {ok('No se detectaron vectores críticos. El host parece seguro.')}")
+    else:
+        print(f"  {fallo('¡Hallazgos detectados!')} Generando hoja de ruta con Guardian AI...\n")
+        plan = generate_remediation_plan(findings)
+        
+        print(f"  {titulo('HOJA DE RUTA DE SEGURIDAD')}")
+        for item in plan:
+            print(f"\n  {resaltar('●')} {item['vector']} ({fallo(item['risk'])})")
+            print(f"    {naranja('Acción:')} {item['remediation']}")
+            print(f"    {info('Arsenal recomendado:')} {', '.join(item['suggested_tools'])}")
 
     separador()
     input(f"  {dim('Enter para continuar...')}")

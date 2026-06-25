@@ -3,8 +3,8 @@
 #  Edita este archivo para personalizar Visor
 # ─────────────────────────────────────────────
 
-VERSION      = "2.5.0"
-APP_NAME     = "Visor v2.5 Metatron Edition"
+VERSION      = "2.6.0"
+APP_NAME     = "Visor v2.6 Arsenal-Metatron Edition"
 ORGANIZATION = "Jasol Group"
 AUTOR        = "Ing. Jeisson Alberto Sarmiento"
 UBICACION    = "Saravena, Arauca, Colombia"

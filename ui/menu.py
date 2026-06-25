@@ -437,12 +437,15 @@ def _menu_auditoria_seguridad():
     separador("🛡️ Auditoría de Seguridad (Motor Metatron)")
     
     # Mostrar historial reciente
-    historial = obtener_historial_reciente(3)
-    if historial:
-        print(f"  {dim('Historial reciente:')}")
-        for h in historial:
-            print(f"    {h[1]} | {h[2]} | {h[3]}")
-        print()
+    try:
+        historial = obtener_historial_reciente(3)
+        if historial:
+            print(f"  {dim('Historial reciente:')}")
+            for h in historial:
+                print(f"    {h[1]} | {h[2]} | {h[3]}")
+            print()
+    except Exception:
+        pass
 
     ip = input(f"  {info('Ingresa la IP o Dominio para auditar:')} ").strip()
     if not ip: return
@@ -475,8 +478,11 @@ def _menu_auditoria_seguridad():
         print(f"  {ok('No se detectaron puertos abiertos comunes.')}")
     
     # Guardar en DB
-    sesion_id = guardar_sesion_seguridad(ip, res)
-    print(f"\n  {dim(f'Auditoría guardada en base de datos local (Sesión ID: {sesion_id})')}")
+    try:
+        sesion_id = guardar_sesion_seguridad(ip, res)
+        print(f"\n  {dim(f'Auditoría guardada en base de datos local (Sesión ID: {sesion_id})')}")
+    except Exception as e:
+        print(f"\n  {warn(f'No se pudo guardar en la base de datos: {e}')}")
     
     separador()
     input(f"  {dim('Enter para continuar...')}")

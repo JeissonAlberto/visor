@@ -28,6 +28,7 @@ def menu_principal():
         print(f"  {resaltar('8.')} 🌍  Geolocalizar IP pública")
         print(f"  {resaltar('9.')} 🛡️   Auditoría de Seguridad (Metatron)")
         print(f"  {resaltar('A.')} 🔫  Arsenal de Comandos (Quick Support)")
+        print(f"  {resaltar('B.')} 🩺  Diagnóstico de Salud (Jitter/Loss)")
         print(f"  {resaltar('0.')} ❌  Salir")
         separador()
 
@@ -43,6 +44,7 @@ def menu_principal():
         elif opcion == "8": _geolocalizacion_manual()
         elif opcion == "9": _menu_auditoria_seguridad()
         elif opcion.upper() == "A": _menu_arsenal()
+        elif opcion.upper() == "B": _menu_salud_red()
         elif opcion == "0":
             print(f"\n  {dim('─'*50)}")
             print(f"  {dim('Creado por ' + AUTOR)}")
@@ -554,6 +556,44 @@ def _menu_arsenal():
         except (ValueError, IndexError):
             print(f"  {fallo('Categoría inválida.')}")
 
+
+
+def _menu_salud_red():
+    from core.health import analizar_calidad
+    
+    separador("🩺 Diagnóstico de Salud de Red")
+    target = input(f"  {info('Ingresa IP/Dominio para medir calidad:')} ").strip()
+    if not target: return
+    
+    try:
+        cant = int(input(f"  {info('Número de paquetes (default 10):')} ") or 10)
+    except: cant = 10
+    
+    print(f"\n  {naranja('Midiendo estabilidad de la conexión...')}")
+    res = analizar_calidad(target, cant)
+    
+    if res['estado'] == 'ONLINE':
+        separador(f"RESULTADOS: {target}")
+        
+        # Color según calidad
+        color_c = ok if res['calidad'] == 'EXCELENTE' else (fallo if res['calidad'] in ('CRÍTICA','INESTABLE') else warn)
+        
+        print(f"  Calidad General:  {color_c(res['calidad'])}")
+        print(f"  Latencia Media:   {resaltar(str(res['avg'])+' ms')}")
+        print(f"  Jitter (Varianza): {res['jitter']} ms")
+        print(f"  Pérdida (Loss):    {res['loss']}%")
+        print(f"  Rango:            {res['min']}ms - {res['max']}ms")
+        
+        if res['jitter'] > 15:
+            print(f"\n  {warn('ALERTA:')} Jitter elevado detectado. Puede afectar Voz sobre IP o Juegos.")
+        if res['loss'] > 0:
+            print(f"  {fallo('ALERTA:')} Hay pérdida de paquetes. Revisa el cableado o el proveedor (ISP).")
+            
+    else:
+        print(f"  {fallo('ERROR:')} El objetivo no responde a los pings.")
+        
+    separador()
+    input(f"  {dim('Enter para continuar...')}")
 
 
 # ── CLI directo (flags) ───────────────────────────────────────────────────

@@ -19,8 +19,8 @@ from setuptools import setup, find_packages
 
 setup(
     name="visor",
-    version="2.1.3",
-    description="Monitor de Red ligero para NOC/ISP — by Jasol Group",
+    version="2.8.0",
+    description="Visor Raptor-Eye Edition — NOC & Security Suite by Jasol Group",
     author="Ing. Jeisson Alberto Sarmiento",
     author_email="jasolgroup@gmail.com",
     packages=find_packages(),

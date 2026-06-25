@@ -27,6 +27,7 @@ def menu_principal():
         print(f"  {resaltar('7.')} 🔌  Info de interfaces de red")
         print(f"  {resaltar('8.')} 🌍  Geolocalizar IP pública")
         print(f"  {resaltar('9.')} 🛡️   Auditoría de Seguridad (Metatron)")
+        print(f"  {resaltar('A.')} 🔫  Arsenal de Comandos (Quick Support)")
         print(f"  {resaltar('0.')} ❌  Salir")
         separador()
 
@@ -41,6 +42,7 @@ def menu_principal():
         elif opcion == "7": _info_interfaces()
         elif opcion == "8": _geolocalizacion_manual()
         elif opcion == "9": _menu_auditoria_seguridad()
+        elif opcion.upper() == "A": _menu_arsenal()
         elif opcion == "0":
             print(f"\n  {dim('─'*50)}")
             print(f"  {dim('Creado por ' + AUTOR)}")
@@ -478,6 +480,74 @@ def _menu_auditoria_seguridad():
     
     separador()
     input(f"  {dim('Enter para continuar...')}")
+
+
+def _menu_arsenal():
+    from config.arsenal_commands import ARSENAL_LIBRARY
+    from core.arsenal import obtener_placeholders, procesar_comando
+    import os
+
+    while True:
+        separador("🔫 ARSENAL: Biblioteca de Comandos Rápidos")
+        
+        # Listar Categorías
+        for i, cat in enumerate(ARSENAL_LIBRARY, 1):
+            print(f"  {resaltar(str(i)+'.')} {cat['categoria']}")
+        print(f"  {resaltar('0.')} Volver")
+        
+        op_cat = input(f"\n  {info('Selecciona una categoría:')} ").strip()
+        if op_cat == "0" or not op_cat: break
+        
+        try:
+            categoria = ARSENAL_LIBRARY[int(op_cat)-1]
+            while True:
+                separador(f"📁 {categoria['categoria']}")
+                for i, cmd in enumerate(categoria['comandos'], 1):
+                    print(f"  {resaltar(str(i)+'.')} {cmd['titulo']}")
+                    print(f"     {dim(cmd['desc'])}")
+                print(f"  {resaltar('0.')} Volver")
+
+                op_cmd = input(f"\n  {info('Selecciona un comando para preparar:')} ").strip()
+                if op_cmd == "0" or not op_cmd: break
+                
+                try:
+                    cmd_obj = categoria['comandos'][int(op_cmd)-1]
+                    raw_cmd = cmd_obj['cmd']
+                    
+                    # Pedir valores para placeholders
+                    campos = obtener_placeholders(raw_cmd)
+                    valores = {}
+                    if campos:
+                        print(f"\n  {naranja('Configura los parámetros del comando:')}")
+                        for c in campos:
+                            # Limpiar el nombre si tiene default {{campo|default}}
+                            nombre_limpio = c.split("|")[0]
+                            default = c.split("|")[1] if "|" in c else ""
+                            
+                            prompt = f"    {nombre_limpio}"
+                            if default: prompt += f" (default: {default})"
+                            
+                            val = input(f"{prompt}: ").strip()
+                            if val: valores[nombre_limpio] = val
+                    
+                    cmd_final = procesar_comando(raw_cmd, valores)
+                    
+                    separador("🚀 COMANDO LISTO")
+                    print(f"\n  {resaltar(cmd_final)}\n")
+                    print(f"  {dim('Copia y pega este comando en tu terminal.')}")
+                    
+                    # Opción extra: intentar ejecutar (solo si el usuario quiere)
+                    ejecutar = input(f"\n  {warn('¿Intentar ejecutar directamente? (s/n):')} ").strip().lower()
+                    if ejecutar == 's':
+                        print(f"\n  {azul('Ejecutando...')}\n")
+                        os.system(cmd_final)
+                        input(f"\n  {dim('Presiona Enter para continuar...')}")
+                    
+                except (ValueError, IndexError):
+                    print(f"  {fallo('Opción inválida.')}")
+        except (ValueError, IndexError):
+            print(f"  {fallo('Categoría inválida.')}")
+
 
 
 # ── CLI directo (flags) ───────────────────────────────────────────────────

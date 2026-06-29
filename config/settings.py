@@ -3,8 +3,8 @@
 #  Edita este archivo para personalizar Visor
 # ─────────────────────────────────────────────
 
-VERSION      = "2.9.0"
-APP_NAME     = "Visor v2.9 Guardian-AI Edition"
+VERSION      = "3.2.0"
+APP_NAME     = "Visor v3.2 Medusa-Shield Edition"
 ORGANIZATION = "Jasol Group"
 AUTOR        = "Ing. Jeisson Alberto Sarmiento"
 UBICACION    = "Saravena, Arauca, Colombia"

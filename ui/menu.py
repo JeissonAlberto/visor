@@ -31,6 +31,7 @@ def menu_principal():
         print(f"  {resaltar('B.')} 🩺  Diagnóstico de Salud (Jitter/Loss)")
         print(f"  {resaltar('C.')} 🦖  Raptor Eye (Threat Hunting)")
         print(f"  {resaltar('G.')} 🛡️  Guardian AI (Pentest Assistant)")
+        print(f"  {resaltar('M.')} 🐍  Medusa Shield (Security Scan)")
         print(f"  {resaltar('0.')} ❌  Salir")
         separador()
 
@@ -49,6 +50,7 @@ def menu_principal():
         elif opcion.upper() == "B": _menu_salud_red()
         elif opcion.upper() == "C": _menu_raptor_eye()
         elif opcion.upper() == "G": _menu_guardian_ai()
+        elif opcion.upper() == "M": _menu_medusa_shield()
         elif opcion == "0":
             print(f"\n  {dim('─'*50)}")
             print(f"  {dim('Creado por ' + AUTOR)}")
@@ -670,6 +672,33 @@ def _menu_guardian_ai():
             print(f"\n  {resaltar('●')} {item['vector']} ({fallo(item['risk'])})")
             print(f"    {naranja('Acción:')} {item['remediation']}")
             print(f"    {info('Arsenal recomendado:')} {', '.join(item['suggested_tools'])}")
+
+    separador()
+    input(f"  {dim('Enter para continuar...')}")
+
+
+def _menu_medusa_shield():
+    from core.medusa_shield import medusa_full_scan
+    
+    separador("🐍 MEDUSA SHIELD: Seguridad de Código e Integridad")
+    print(f"  {dim('Inspirado en Medusa AI - Escaneo de Secretos y Vetting')}\n")
+    
+    print(f"  {naranja('Iniciando escaneo profundo en el directorio raíz...')}")
+    results = medusa_full_scan()
+    
+    # Reportar Secretos
+    print(f"\n  {titulo('1. ESCANEO DE SECRETOS Y LLAVES')}")
+    if results['secrets']:
+        for s in results['secrets']:
+            print(f"  [{fallo('EXPOSED')}] {s['type']} en {resaltar(os.path.basename(s['file']))} (Línea {s['line']})")
+    else:
+        print(f"  {ok('No se detectaron secretos o llaves expuestas.')}")
+        
+    # Reportar Integridad
+    print(f"\n  {titulo('2. AUDITORÍA DE INTEGRIDAD DE IA')}")
+    for i in results['integrity']:
+        color_status = ok if i['status'] == "VERIFIED" else fallo
+        print(f"  [{color_status(i['status'])}] Módulo {resaltar(i['module'])}: {i['check']}")
 
     separador()
     input(f"  {dim('Enter para continuar...')}")

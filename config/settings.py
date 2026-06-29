@@ -3,11 +3,27 @@
 #  Edita este archivo para personalizar Visor
 # ─────────────────────────────────────────────
 
-VERSION      = "3.3.0"
-APP_NAME     = "Visor v3.3 Orchestrator-Prime Edition"
+VERSION      = "4.0.0"
+APP_NAME     = "Visor v4.0 Command Center Edition"
 ORGANIZATION = "Jasol Group"
 AUTOR        = "Ing. Jeisson Alberto Sarmiento"
 UBICACION    = "Saravena, Arauca, Colombia"
+
+# ── CONFIGURACIÓN DE INFRAESTRUCTURA (Jasol Group) ──────────────
+
+# MikroTik Core
+MIKROTIK_HOST = "190.1.X.X"  # IP del Core en Saravena
+MIKROTIK_USER = "admin"
+MIKROTIK_PASS = "Js92112751000"
+
+# Proxmox Virtualization
+PROXMOX_HOST = "10.0.0.X"
+PROXMOX_USER = "root@pam"
+PROXMOX_PASS = "Js92112751000"
+
+# Dashboard Sync (UI UX Pro Max)
+DASHBOARD_URL = "https://site.zapia.com/sfxt00vr"
+SYNC_INTERVAL = 300  # 5 minutos
 
 # ── Intervalo de monitoreo continuo (segundos) ──
 INTERVALO_MONITOREO = 60

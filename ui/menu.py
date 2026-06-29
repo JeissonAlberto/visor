@@ -32,6 +32,7 @@ def menu_principal():
         print(f"  {resaltar('C.')} 🦖  Raptor Eye (Threat Hunting)")
         print(f"  {resaltar('G.')} 🛡️  Guardian AI (Pentest Assistant)")
         print(f"  {resaltar('M.')} 🐍  Medusa Shield (Security Scan)")
+        print(f"  {resaltar('O.')} 🕹️  Orchestrator (Auto-Pilot)")
         print(f"  {resaltar('0.')} ❌  Salir")
         separador()
 
@@ -51,6 +52,7 @@ def menu_principal():
         elif opcion.upper() == "C": _menu_raptor_eye()
         elif opcion.upper() == "G": _menu_guardian_ai()
         elif opcion.upper() == "M": _menu_medusa_shield()
+        elif opcion.upper() == "O": _menu_orchestrator()
         elif opcion == "0":
             print(f"\n  {dim('─'*50)}")
             print(f"  {dim('Creado por ' + AUTOR)}")
@@ -700,6 +702,32 @@ def _menu_medusa_shield():
         color_status = ok if i['status'] == "VERIFIED" else fallo
         print(f"  [{color_status(i['status'])}] Módulo {resaltar(i['module'])}: {i['check']}")
 
+    separador()
+    input(f"  {dim('Enter para continuar...')}")
+
+
+def _menu_orchestrator():
+    from core.orchestrator import run_orchestrated_task
+    
+    separador("🕹️ ORCHESTRATOR: Misión Autónoma (Auto-Pilot)")
+    print(f"  {dim('Coordinación de Agentes en Paralelo - Jasol Group')}\n")
+    
+    target = input(f"  {info('Objetivo de la misión (IP/Dominio o vacío para local):')} ").strip()
+    
+    print(f"\n  {naranja('Ejecutando misión de auditoría 360°...')}")
+    results = run_orchestrated_task("SECURITY_AUDIT", target if target else None)
+    
+    if results:
+        print(f"\n  {ok('Misión completada con éxito.')}")
+        print(f"  - Agentes desplegados: Raptor, Medusa, Guardian.")
+        
+        if 'raptor' in results and results['raptor']:
+            print(f"  - {fallo('Hallazgos Raptor:')} {len(results['raptor'])} vulnerabilidades.")
+        if 'medusa' in results and results['medusa']:
+            print(f"  - {fallo('Alertas Medusa:')} {len(results['medusa'])} secretos detectados.")
+        if 'guardian' in results:
+            print(f"  - {ok('Guardian:')} Plan de remediación generado automáticamente.")
+    
     separador()
     input(f"  {dim('Enter para continuar...')}")
 

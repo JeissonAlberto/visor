@@ -1,6 +1,6 @@
 @echo off
 echo.
-echo   [ Jasol Group - Instalador de Visor v2.8 ]
+echo   [ Jasol Group - Instalador de Visor v4.7 ]
 echo   ------------------------------------------
 echo.
 echo   1. Verificando Python...
@@ -12,11 +12,10 @@ if %errorlevel% neq 0 (
 )
 
 echo   2. Instalando Visor como comando global...
-pip install -e .
+pip install -e . --force-reinstall
 
 echo   3. Configurando acceso rapido...
 echo   Listo. Ahora puedes usar el comando 'visor' desde cualquier terminal.
 echo.
-echo   Presiona una tecla para abrir Visor por primera vez...
 pause
 visor

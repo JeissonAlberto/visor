@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "visor"
+version = "4.7.0"
+description = "Visor Command Center — Jasol Group NOC Suite"
+authors = [{name = "Ing. Jeisson Alberto Sarmiento"}]
+requires-python = ">=3.10"
+dependencies = [
+    "requests",
+    "psutil",
+    "colorama"
+]
+
+[project.scripts]
+visor = "main:main"
+
+[tool.setuptools]
+py-modules = ["main"]
+packages = ["config", "core", "ui", "utils"]

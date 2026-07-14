@@ -32,7 +32,8 @@ def menu_principal():
         print(f"  {resaltar('C.')} 🦖  Raptor Eye (Threat Hunting)")
         print(f"  {resaltar('G.')} 🛡️  Guardian AI (Pentest Assistant)")
         print(f"  {resaltar('M.')} 🐍  Medusa Shield (Security Scan)")
-        print(f"  {resaltar('O.')} 🕹️  Orchestrator (Auto-Pilot)")
+        print(f"  {resaltar('I.')} 🖥️  Infraestructura L3 (MikroTik/Proxmox)
+  {resaltar('O.')} 🕹️  Orchestrator (Auto-Pilot)")
         print(f"  {resaltar('0.')} ❌  Salir")
         separador()
 
@@ -740,3 +741,7 @@ def run_direct(args):
     if args.web:      _menu_web()
     if args.internet: _menu_internet()
     if args.report:   _ver_reporte()
+
+def _menu_infraestructura_l3():
+    from ui.menu_infraestructura import menu_infraestructura
+    menu_infraestructura()

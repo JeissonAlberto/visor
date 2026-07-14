@@ -33,6 +33,7 @@ def menu_principal():
         print(f"  {resaltar('G.')} 🛡️  Guardian AI (Pentest Assistant)")
         print(f"  {resaltar('M.')} 🐍  Medusa Shield (Security Scan)")
         print(f"  {resaltar('I.')} 🖥️  Infraestructura L3 (MikroTik/Proxmox)
+  {resaltar('L.')} 🌐  LAN Vision — Descubrimiento de Red
   {resaltar('O.')} 🕹️  Orchestrator (Auto-Pilot)")
         print(f"  {resaltar('0.')} ❌  Salir")
         separador()
@@ -745,3 +746,7 @@ def run_direct(args):
 def _menu_infraestructura_l3():
     from ui.menu_infraestructura import menu_infraestructura
     menu_infraestructura()
+
+def _menu_lan_vision():
+    from ui.menu_lan_vision import menu_lan_vision
+    menu_lan_vision()

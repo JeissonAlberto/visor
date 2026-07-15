@@ -15,11 +15,11 @@ import time
 import os
 from datetime import datetime
 
-from core.raptor_eye import hunt_vulnerabilities, scan_network_threats, calcular_score_amenaza
+from core.raptor_eye import hunt_vulnerabilities, scan_network_threats, generar_resumen_riesgo as calcular_score_amenaza
 from core.guardian_ai import generate_remediation_plan, generar_reporte_ejecutivo, calcular_score_riesgo
 from core.medusa_shield import scan_for_secrets
 from core.health import analizar_calidad, analizar_completo
-from core.lan_vision import full_lan_scan
+from core.lan_vision import discover_lan
 
 
 # ── Tipos de misión ───────────────────────────────────────────────────────

@@ -4,8 +4,8 @@
 #  Saravena, Arauca, Colombia
 # ─────────────────────────────────────────────
 
-VERSION      = "5.0.0"
-APP_NAME     = "Visor v5.0 — Enterprise NOC"
+VERSION      = "5.1.0"
+APP_NAME     = "Visor v5.1 — NOC Command Suite"
 ORGANIZATION = "Jasol Group"
 AUTOR        = "Ing. Jeisson Alberto Sarmiento"
 UBICACION    = "Saravena, Arauca, Colombia"

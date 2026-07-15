@@ -21,7 +21,7 @@ REMEDIATION_KB = {
         "descripcion": "Vulnerable a EternalBlue (WannaCry, NotPetya).",
         "impacto": "Movimiento lateral y cifrado masivo de archivos.",
         "remediacion": ["Deshabilitar SMBv1.", "Aplicar parche MS17-010.", "Bloquear puertos 139/445 en perímetro."],
-        "comandos": ["Set-SmbServerConfiguration -EnableSMB1Protocol \ -Force"],
+        "comandos": ["Set-SmbServerConfiguration -EnableSMB1Protocol $false -Force"],
         "referencias": ["CVE-2017-0144", "MS17-010"],
     },
     23:   {"nombre": "Telnet Activo", "riesgo": "CRÍTICO", "descripcion": "Transmite credenciales en texto plano.", "impacto": "Captura con Wireshark trivial.", "remediacion": ["Migrar a SSH.", "/ip service disable telnet"], "comandos": ["/ip service disable telnet"], "referencias": ["RFC-0854"]},

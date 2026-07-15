@@ -11,9 +11,9 @@ def generate_remediation_plan(findings: list) -> list:
     PRIORIDAD = {"CRÍTICO": 0, "ALTO": 1, "MEDIO": 2, "BAJO": 3, "INFO": 4}
     plan = []
     for finding in findings:
-        port  = finding.get("port")
+        port   = finding.get("port")
         riesgo = finding.get("risk", "DESCONOCIDO")
-        desc  = finding.get("desc", "Sin descripción")
+        desc   = finding.get("desc", "Sin descripción")
         banner = finding.get("banner", "")
         kb = REMEDIATION_KB.get(port, {})
         entrada = {
@@ -23,7 +23,7 @@ def generate_remediation_plan(findings: list) -> list:
             "descripcion": kb.get("descripcion", desc),
             "impacto":     kb.get("impacto", "Exposición de servicio no autorizado."),
             "remediacion": kb.get("remediacion", DEFAULT_REMEDIATION["remediacion"]),
-            "comandos":    kb.get("comandos", DEFAULT_REMEDIATION["comandos"]),
+            "comandos":    kb.get("comandos",    DEFAULT_REMEDIATION["comandos"]),
             "referencias": kb.get("referencias", []),
             "banner":      banner,
             "ts":          datetime.now().isoformat(timespec="seconds"),
@@ -34,44 +34,52 @@ def generate_remediation_plan(findings: list) -> list:
 
 
 def generar_reporte_ejecutivo(plan: list, target: str = "Sistema Local") -> str:
+    sep  = "=" * 70
+    sep2 = "-" * 68
+    ts   = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    crit = sum(1 for h in plan if h["riesgo"] == "CRÍTICO")
+    alt  = sum(1 for h in plan if h["riesgo"] == "ALTO")
+    med  = sum(1 for h in plan if h["riesgo"] == "MEDIO")
+
     lineas = [
-        "=" * 70,
-        f"  REPORTE EJECUTIVO DE SEGURIDAD — VISOR v5.1",
-        f"  Jasol Group · Ing. Jeisson Alberto Sarmiento",
+        sep,
+        "  REPORTE EJECUTIVO DE SEGURIDAD — VISOR v5.1",
+        "  Jasol Group · Ing. Jeisson Alberto Sarmiento",
         f"  Objetivo: {target}",
-        f"  Fecha:    {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
-        "=" * 70,
-        f"
-  Total hallazgos: {len(plan)}",
-        f"  Críticos: {sum(1 for h in plan if h['riesgo'] == 'CRÍTICO')}  |  "
-        f"Altos: {sum(1 for h in plan if h['riesgo'] == 'ALTO')}  |  "
-        f"Medios: {sum(1 for h in plan if h['riesgo'] == 'MEDIO')}",
-        "
-" + "-" * 70,
+        f"  Fecha:    {ts}",
+        sep,
+        "",
+        f"  Total hallazgos: {len(plan)}",
+        f"  Críticos: {crit}  |  Altos: {alt}  |  Medios: {med}",
+        "",
+        "-" * 70,
     ]
+
     for i, h in enumerate(plan, 1):
-        lineas += [
-            f"
-  [{i}] {h['servicio']} (Puerto {h['puerto']}) — Riesgo: {h['riesgo']}",
-            f"  Descripción: {h['descripcion']}",
-            f"  Impacto:     {h['impacto']}",
-            f"  Remediación:",
-        ]
+        lineas.append("")
+        lineas.append(f"  [{i}] {h['servicio']} (Puerto {h['puerto']}) — Riesgo: {h['riesgo']}")
+        lineas.append(f"  Descripción: {h['descripcion']}")
+        lineas.append(f"  Impacto:     {h['impacto']}")
+        lineas.append("  Remediación:")
         for paso in h["remediacion"]:
             lineas.append(f"    • {paso}")
+        if h.get("comandos"):
+            lineas.append("  Comandos:")
+            for cmd in h["comandos"]:
+                lineas.append(f"    $ {cmd}")
         if h.get("banner"):
             lineas.append(f"  Banner: {h['banner']}")
-        if h["referencias"]:
+        if h.get("referencias"):
             lineas.append(f"  Referencias: {', '.join(h['referencias'])}")
-        lineas.append("  " + "-" * 68)
+        lineas.append("  " + sep2)
+
     lineas += [
-        "
-  Este reporte fue generado automáticamente por Visor v5.1.",
-        "  Validar todos los hallazgos antes de aplicar cambios en producción.",
-        "=" * 70,
+        "",
+        "  Reporte generado automáticamente por Visor v5.1.",
+        "  Validar hallazgos antes de aplicar cambios en producción.",
+        sep,
     ]
-    return "
-".join(lineas)
+    return "\n".join(lineas)
 
 
 def calcular_score_riesgo(plan: list) -> dict:
@@ -83,7 +91,8 @@ def calcular_score_riesgo(plan: list) -> dict:
     elif score < 75:  nivel = "🔴 RIESGO ALTO"
     else:             nivel = "☠️  CRÍTICO"
     return {
-        "score":    score, "nivel": nivel,
+        "score":    score,
+        "nivel":    nivel,
         "criticos": sum(1 for h in plan if h["riesgo"] == "CRÍTICO"),
         "altos":    sum(1 for h in plan if h["riesgo"] == "ALTO"),
         "medios":   sum(1 for h in plan if h["riesgo"] == "MEDIO"),

@@ -233,9 +233,10 @@ def _threat_hunting_red():
         count[0] += 1
         criticos = entry["criticos"]
         color = fallo if criticos > 0 else warn
-        print(f"  {color(f'  ⚠️  {entry[\"ip\"]}')} — "
-              f"{len(entry['threats'])} vectores "
-              f"({fallo(f'{criticos} CRÍTICOS') if criticos else ''})")
+        ip_addr = entry["ip"]
+        n_threats = len(entry["threats"])
+        crit_lbl = fallo(f"{criticos} CRITICOS") if criticos else ""
+        print(f"  {color("  WARNING  " + ip_addr)} -- {n_threats} vectores ({crit_lbl})")
         todos_los_findings.extend(entry["threats"])
 
     separador("HOSTS CON VULNERABILIDADES")

@@ -32,9 +32,9 @@ def menu_principal():
         print(f"  {resaltar('C.')} 🦖  Raptor Eye (Threat Hunting)")
         print(f"  {resaltar('G.')} 🛡️  Guardian AI (Pentest Assistant)")
         print(f"  {resaltar('M.')} 🐍  Medusa Shield (Security Scan)")
-        print(f"  {resaltar('I.')} 🖥️  Infraestructura L3 (MikroTik/Proxmox)
-  {resaltar('L.')} 🌐  LAN Vision — Descubrimiento de Red
-  {resaltar('O.')} 🕹️  Orchestrator (Auto-Pilot)")
+        print(f"  {resaltar('I.')} 🖥️  Infraestructura L3 (MikroTik/Proxmox)")
+        print(f"  {resaltar('L.')} 🌐  LAN Vision — Descubrimiento de Red")
+        print(f"  {resaltar('O.')} 🕹️  Orchestrator (Misión Auto-Pilot)")
         print(f"  {resaltar('0.')} ❌  Salir")
         separador()
 

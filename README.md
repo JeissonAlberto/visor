@@ -104,15 +104,24 @@ SERVICIOS_WEB = [
 RANGO_SCAN = "192.168.1.0/24"
 ```
 
-### Alertas de correo (`config/smtp_config.py`)
+### Alertas de correo (sin secretos en Git)
 
-```python
-SMTP_USER    = "mi_correo@gmail.com"
-SMTP_PASS    = "xxxx xxxx xxxx xxxx"   # Contraseña de aplicación Gmail
-DESTINATARIO = "noc@empresa.com"
+Configura las credenciales mediante variables de entorno:
+
+```bash
+export VISOR_SMTP_USER="mi_correo@gmail.com"
+export VISOR_SMTP_PASS="xxxx xxxx xxxx xxxx"
+export VISOR_SMTP_DESTINATARIO="noc@empresa.com"
+# Opcional: VISOR_SMTP_SERVER y VISOR_SMTP_PORT (por defecto Gmail/465)
 ```
 
-> Obtén tu contraseña de aplicación en: [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords)
+También puedes usar `visor --setup`: el asistente guarda la configuración en
+`config/smtp_config_local.py`, un archivo excluido de Git. Obtén tu contraseña
+de aplicación en [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords).
+
+Las credenciales de infraestructura siguen el mismo criterio:
+`VISOR_MIKROTIK_PASS`, `VISOR_PROXMOX_PASS`, `VISOR_PROXMOX_TOKEN_ID` y
+`VISOR_PROXMOX_TOKEN_SECRET`.
 
 ---
 

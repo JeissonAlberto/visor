@@ -15,8 +15,8 @@ reports/*.txt
 reports/*.json
 
 # Configuración con credenciales reales (no subir al repo)
-# Descomenta si no quieres subir tu config de SMTP:
-# config/smtp_config.py
+# El asistente crea este módulo local con credenciales SMTP.
+config/smtp_config_local.py
 
 # Entornos virtuales
 venv/

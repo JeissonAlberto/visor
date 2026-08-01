@@ -4,6 +4,8 @@
 #  Saravena, Arauca, Colombia
 # ─────────────────────────────────────────────
 
+import os
+
 VERSION      = "5.1.0"
 APP_NAME     = "Visor v5.1 — NOC Command Suite"
 ORGANIZATION = "Jasol Group"
@@ -15,14 +17,16 @@ UBICACION    = "Saravena, Arauca, Colombia"
 # MikroTik Core (Saravena)
 MIKROTIK_HOST = "190.1.X.X"       # ← Reemplaza con IP real del Core
 MIKROTIK_USER = "admin"
-MIKROTIK_PASS = "Js92112751000"   # ← Cambiar tras primer uso
+# Nunca guardes contraseñas en el código ni en el repositorio. Configúrala
+# mediante la variable de entorno VISOR_MIKROTIK_PASS cuando sea necesario.
+MIKROTIK_PASS = os.getenv("VISOR_MIKROTIK_PASS", "")
 
 # Proxmox VE
 PROXMOX_HOST        = "10.0.0.X"  # ← IP real del servidor Proxmox
 PROXMOX_USER        = "root@pam"
-PROXMOX_PASS        = ""          # Solo para API básica
-PROXMOX_TOKEN_ID    = "root@pam!visor"   # Crear en: Datacenter > API Tokens
-PROXMOX_TOKEN_SECRET = ""                # ← Pegar el secret aquí tras crearlo
+PROXMOX_PASS        = os.getenv("VISOR_PROXMOX_PASS", "")
+PROXMOX_TOKEN_ID    = os.getenv("VISOR_PROXMOX_TOKEN_ID", "root@pam!visor")
+PROXMOX_TOKEN_SECRET = os.getenv("VISOR_PROXMOX_TOKEN_SECRET", "")
 
 # ── MONITOREO ─────────────────────────────────────────────────────────────
 INTERVALO_MONITOREO  = 60   # segundos entre ciclos de monitoreo continuo
@@ -49,7 +53,7 @@ ALERTAS_EMAIL_ACTIVAS = True
 
 # ── DASHBOARD ─────────────────────────────────────────────────────────────
 DASHBOARD_URL   = "https://site.zapia.com/sfxt00vr"
-SYNC_INTERVAL   = 300  # segundos
+SYNC_INTERVAL   = 300   # segundos
 
 # ── COLORES ───────────────────────────────────────────────────────────────
 COLORES_ACTIVOS = True

@@ -29,7 +29,7 @@ def setup_wizard():
 
     separador()
     print(f"\n  {ok('¡Configuración completada!')}")
-    print(f"  {dim('Archivos actualizados: config/device.py' + (' · config/smtp_config.py' if smtp else ''))}")
+    print(f"  {dim('Archivos actualizados: config/device.py' + (' · config/smtp_config_local.py' if smtp else ''))}")
     print(f"\n  Ahora ejecuta: {resaltar('python main.py')}\n")
 
 
@@ -143,15 +143,15 @@ RANGO_SCAN = {repr(rango)}
 
 
 def _escribir_smtp(smtp):
+    """Guarda la configuración SMTP en un módulo local ignorado por Git."""
     from pathlib import Path
-    contenido = f"""# Generado por Visor Setup Wizard
+
+    contenido = f"""# Generado por Visor Setup Wizard — NO versionar
 SMTP_SERVER  = "smtp.gmail.com"
 SMTP_PORT    = 465
-SMTP_USER    = {repr(smtp["usuario"])}
-SMTP_PASS    = {repr(smtp["clave"])}
-DESTINATARIO = {repr(smtp["destino"])}
-
-ASUNTO_CAIDA      = "[VISOR] ⚠️ Dispositivo CAÍDO: {{nombre}}"
-ASUNTO_RECUPERADO = "[VISOR] ✅ Dispositivo RECUPERADO: {{nombre}}"
+SMTP_USER    = {smtp["usuario"]!r}
+SMTP_PASS    = {smtp["clave"]!r}
+DESTINATARIO = {smtp["destino"]!r}
 """
-    Path("config/smtp_config.py").write_text(contenido, encoding="utf-8")
+    path = Path("config/smtp_config_local.py")
+    path.write_text(contenido, encoding="utf-8")

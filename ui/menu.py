@@ -554,12 +554,10 @@ def _menu_arsenal():
                     print(f"\n  {resaltar(cmd_final)}\n")
                     print(f"  {dim('Copia y pega este comando en tu terminal.')}")
                     
-                    # Opción extra: intentar ejecutar (solo si el usuario quiere)
-                    ejecutar = input(f"\n  {warn('¿Intentar ejecutar directamente? (s/n):')} ").strip().lower()
-                    if ejecutar == 's':
-                        print(f"\n  {azul('Ejecutando...')}\n")
-                        os.system(cmd_final)
-                        input(f"\n  {dim('Presiona Enter para continuar...')}")
+                    # Los comandos de Arsenal son texto para copiar: no se
+                    # ejecutan desde Visor, evitando shell injection accidental.
+                    print(f"\n  {dim('Por seguridad, Visor no ejecuta comandos del Arsenal automáticamente.')} ")
+                    input(f"\n  {dim('Presiona Enter para continuar...')}")
                     
                 except (ValueError, IndexError):
                     print(f"  {fallo('Opción inválida.')}")

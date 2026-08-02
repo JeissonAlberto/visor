@@ -12,12 +12,19 @@ from config.settings import ALERTAS_EMAIL_ACTIVAS
 
 
 def enviar_correo(asunto: str, cuerpo: str) -> bool:
-    """Envía un correo. Devuelve True si fue exitoso."""
+    """Envía un correo. Devuelve True si fue exitoso.
+
+    Las alertas se omiten silenciosamente cuando están deshabilitadas o
+    incompletas; así un despliegue nuevo no intenta autenticarse contra SMTP
+    con credenciales vacías.
+    """
     if not ALERTAS_EMAIL_ACTIVAS:
         return False
 
-    # Validación básica de configuración
-    if "tucorreo@gmail.com" in SMTP_USER or "xxxx" in SMTP_PASS:
+    # La configuración llega desde variables de entorno o el archivo local.
+    # Validar todos los campos evita conexiones inútiles y errores confusos.
+    if not all((SMTP_SERVER, SMTP_PORT, SMTP_USER.strip(), SMTP_PASS,
+                DESTINATARIO.strip())):
         return False  # No configurado
 
     try:

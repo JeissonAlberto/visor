@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "visor"
-version = "4.7.0"
+version = "5.2.1"
 description = "Visor Command Center — Jasol Group NOC Suite"
 authors = [{name = "Ing. Jeisson Alberto Sarmiento"}]
 requires-python = ">=3.10"

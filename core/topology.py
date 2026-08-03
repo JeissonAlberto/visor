@@ -24,6 +24,7 @@ from typing import Callable, Iterable
 from core.health import traceroute as _traceroute
 from core.lan_vision import discover_lan, lookup_oui
 from core.red import detectar_gateway, hacer_ping
+from core.wifi import annotate_wifi_nodes, local_wifi_context, mikrotik_wifi_clients
 
 
 DEFAULT_TRACE_TARGET = "8.8.8.8"
@@ -96,7 +97,10 @@ def _new_node(ip: str, **kwargs) -> dict:
         "evidencia": list(kwargs.get("evidencia", []) or []),
         "verificaciones": list(kwargs.get("verificaciones", []) or []),
         "confianza": kwargs.get("confianza", "media"),
+        "medio": kwargs.get("medio", "lan_no_clasificado"),
     }
+    if kwargs.get("wifi"):
+        node["wifi"] = kwargs["wifi"]
     return node
 
 
@@ -181,6 +185,7 @@ def build_topology(
     discover_fn: Callable | None = None,
     traceroute_fn: Callable | None = None,
     ping_fn: Callable | None = None,
+    wifi_provider: Callable | None = None,
 ) -> dict:
     """Descubre una topología basada únicamente en conexiones verificables.
 
@@ -212,6 +217,15 @@ def build_topology(
         confianza="alta" if local_ip else "media",
     )
     _merge_node(nodes_by_id, local)
+
+    # Contexto Wi-Fi: se consulta el sistema local y, si está configurado,
+    # la tabla de asociaciones del MikroTik/AP autorizado.
+    local_wifi = local_wifi_context()
+    wifi_data = (wifi_provider() if wifi_provider else mikrotik_wifi_clients()) or {}
+    wifi_data.setdefault("local", local_wifi)
+    if local_wifi.get("disponible") and local_wifi.get("ssid"):
+        local["medio"] = "wifi"
+        local["wifi"] = local_wifi
 
     # Escaneo LAN: cada resultado trae la ficha técnica disponible del equipo.
     lan_devices = []
@@ -293,6 +307,45 @@ def build_topology(
             "alta" if reachable else "media",
             "La ruta por defecto identifica el gateway L3 local.",
         )
+
+    # Clientes Wi-Fi confirmados por la tabla del AP/MikroTik pueden aparecer
+    # aunque no respondan al ping-sweep. Se conserva su MAC y telemetría radio.
+    wifi_clients = wifi_data.get("clientes", []) or []
+    known_macs = {re.sub(r"[^0-9a-f]", "", n.get("mac", "").lower())
+                  for n in nodes_by_id.values() if n.get("mac")}
+    for client in wifi_clients:
+        client_mac = re.sub(r"[^0-9a-f]", "", client.get("mac", "").lower())
+        if not client_mac or client_mac in known_macs:
+            continue
+        wifi_node = _new_node(
+            client.get("ip", ""),
+            mac=client.get("mac", ""),
+            hostname=client.get("hostname", ""),
+            vendor=lookup_oui(client.get("mac", "")),
+            tipo="Cliente Wi-Fi",
+            rol="wifi_client",
+            activo=True,
+            medio="wifi",
+            wifi={k: client.get(k, "") for k in ("interfaz", "senal", "tx_rate", "rx_rate", "uptime", "fuente")},
+            evidencia=["tabla_asociacion_wifi"],
+            verificaciones=["Asociación Wi-Fi confirmada por AP/MikroTik"],
+            confianza="alta",
+        )
+        _merge_node(nodes_by_id, wifi_node)
+
+    annotate_wifi_nodes(list(nodes_by_id.values()), wifi_data)
+    wifi_router = wifi_data.get("router", "")
+    wifi_anchor = next((n for n in nodes_by_id.values() if n.get("ip") == wifi_router), None)
+    if wifi_anchor is None and gateway and wifi_clients:
+        wifi_anchor = next((n for n in nodes_by_id.values() if n.get("ip") == gateway), None)
+    if wifi_anchor:
+        for wifi_node in nodes_by_id.values():
+            if wifi_node.get("medio") == "wifi" and wifi_node["id"] != wifi_anchor["id"]:
+                _add_edge(
+                    edges_by_key, wifi_anchor, wifi_node, "wifi_association",
+                    ["tabla_asociacion_wifi"], True, "alta",
+                    "Asociación confirmada por la tabla del AP/MikroTik; no implica un puerto físico.",
+                )
 
     targets = list(trace_targets or [DEFAULT_TRACE_TARGET])
     traces = []
@@ -400,10 +453,12 @@ def build_topology(
             "conexiones_verificadas": sum(1 for e in edges if e["verificado"]),
             "equipos_lan": sum(1 for n in nodes if n["rol"] == "lan_host"),
             "saltos_l3": sum(1 for n in nodes if n["rol"] == "route_hop"),
+            "equipos_wifi": sum(1 for n in nodes if n.get("medio") == "wifi" and n["rol"] != "local"),
         },
+        "wifi": wifi_data,
         "evidencia": {
             "descubrimiento_lan": discovery_note,
-            "metodo": ["ARP", "ICMP", "ruta por defecto", "traceroute", "DNS inverso", "puertos TCP comunes"],
+            "metodo": ["ARP", "ICMP", "ruta por defecto", "traceroute", "DNS inverso", "puertos TCP comunes", "tabla de asociación Wi-Fi si está configurada"],
         },
         "advertencias": warnings,
     }
@@ -419,7 +474,7 @@ def render_topology_text(topology: dict) -> str:
         f"Estación: {topology.get('local', {}).get('hostname', '—')} ({topology.get('local', {}).get('ip', '—')})",
         f"Gateway: {topology.get('gateway') or 'No detectado'}",
         f"Subred: {topology.get('subred') or 'No determinada'}",
-        f"Nodos: {summary.get('nodos', 0)} | Conexiones: {summary.get('conexiones', 0)} | Verificadas: {summary.get('conexiones_verificadas', 0)}",
+        f"Nodos: {summary.get('nodos', 0)} | Conexiones: {summary.get('conexiones', 0)} | Verificadas: {summary.get('conexiones_verificadas', 0)} | Wi-Fi: {summary.get('equipos_wifi', 0)}",
         "",
         "EQUIPOS DESCUBIERTOS",
         "-" * 72,
@@ -428,18 +483,22 @@ def render_topology_text(topology: dict) -> str:
         ports = ", ".join(str(p) for p in node.get("puertos", [])) or "—"
         checks = "; ".join(node.get("verificaciones", [])) or "—"
         evidence = ", ".join(node.get("evidencia", [])) or "—"
+        wifi = node.get("wifi", {})
+        wifi_info = ""
+        if node.get("medio") == "wifi":
+            wifi_info = f" | Wi-Fi: interfaz={wifi.get('interfaz', '—')} señal={wifi.get('senal', '—')}"
         lines.extend([
-            f"[{node.get('rol', 'host').upper()}] {node.get('ip', '—')} — {node.get('tipo', 'Host')}",
+            f"[{node.get('rol', 'host').upper()}] {node.get('ip') or 'IP no asociada'} — {node.get('tipo', 'Host')}",
             f"  Hostname: {node.get('hostname') or '—'} | MAC: {node.get('mac') or '—'} | Fabricante: {node.get('vendor') or '—'}",
-            f"  Puertos: {ports} | Riesgo: {node.get('riesgo', '—')} | Confianza: {node.get('confianza', '—')}",
+            f"  Puertos: {ports} | Medio: {node.get('medio', '—')} | Riesgo: {node.get('riesgo', '—')} | Confianza: {node.get('confianza', '—')}{wifi_info}",
             f"  Evidencia: {evidence}",
             f"  Verificación: {checks}",
         ])
     lines.extend(["", "CONEXIONES OBSERVADAS", "-" * 72])
     by_id = {n["id"]: n for n in topology.get("nodos", [])}
     for edge in topology.get("conexiones", []):
-        source = by_id.get(edge["source"], {}).get("ip", edge["source"])
-        target = by_id.get(edge["target"], {}).get("ip", edge["target"])
+        source = by_id.get(edge["source"], {}).get("ip") or edge["source"]
+        target = by_id.get(edge["target"], {}).get("ip") or edge["target"]
         status = "VERIFICADA" if edge.get("verificado") else "PARCIAL / NO VERIFICADA"
         evidence = ", ".join(edge.get("evidencia", []))
         lines.append(f"{source} -> {target} | {edge.get('relation')} | {status} | {evidence}")

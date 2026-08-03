@@ -221,8 +221,29 @@ def build_topology(
     # Contexto Wi-Fi: se consulta el sistema local y, si está configurado,
     # la tabla de asociaciones del MikroTik/AP autorizado.
     local_wifi = local_wifi_context()
-    wifi_data = (wifi_provider() if wifi_provider else mikrotik_wifi_clients()) or {}
+    wifi_error = ""
+    try:
+        wifi_data = (wifi_provider() if wifi_provider else mikrotik_wifi_clients()) or {}
+    except Exception:
+        # Wi-Fi/AP telemetry is optional: a failed provider must not abort the
+        # LAN and traceroute portions of the topology report.
+        wifi_data = {}
+        wifi_error = "No se pudo consultar la telemetría Wi-Fi opcional."
+    if not isinstance(wifi_data, dict):
+        wifi_data = {}
+        wifi_error = "El proveedor de telemetría Wi-Fi devolvió un formato inválido."
     wifi_data.setdefault("local", local_wifi)
+    raw_wifi_clients = wifi_data.get("clientes", [])
+    if isinstance(raw_wifi_clients, list):
+        wifi_clients = [client for client in raw_wifi_clients if isinstance(client, dict)]
+        if len(wifi_clients) != len(raw_wifi_clients) and not wifi_error:
+            wifi_error = "Se ignoraron registros Wi-Fi con formato inválido."
+    else:
+        wifi_clients = []
+        if not wifi_error:
+            wifi_error = "El proveedor de telemetría Wi-Fi devolvió clientes inválidos."
+    # Keep downstream annotators on the validated representation.
+    wifi_data["clientes"] = wifi_clients
     if local_wifi.get("disponible") and local_wifi.get("ssid"):
         local["medio"] = "wifi"
         local["wifi"] = local_wifi
@@ -439,6 +460,8 @@ def build_topology(
         "No se infieren conexiones entre dos hosts LAN si no existe evidencia directa.",
         "Un salto con timeout no se marca como enlace verificado.",
     ]
+    if wifi_error:
+        warnings.append(wifi_error)
     return {
         "ts": _now(),
         "local": {"ip": local_ip, "hostname": socket.gethostname()},

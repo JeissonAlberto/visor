@@ -139,6 +139,40 @@ class TopologyTests(unittest.TestCase):
         self.assertEqual(client["medio"], "wifi")
         self.assertEqual(client["ip"], "")
 
+    @patch("core.topology.local_wifi_context", return_value={})
+    @patch("core.topology.detectar_gateway", return_value="")
+    @patch("core.topology._local_ip", return_value="192.168.1.10")
+    def test_optional_wifi_provider_failure_does_not_abort_report(self, _local, _gateway, _wifi):
+        def failing_provider():
+            raise RuntimeError("provider unavailable")
+
+        result = build_topology(
+            trace_targets=["198.51.100.20"],
+            discover_fn=lambda **kwargs: [],
+            traceroute_fn=lambda target: [],
+            ping_fn=self.ping,
+            wifi_provider=failing_provider,
+        )
+
+        self.assertIn("No se pudo consultar la telemetría Wi-Fi opcional.", result["advertencias"])
+        self.assertEqual(result["wifi"]["clientes"], [])
+        self.assertIn("198.51.100.20", {node["ip"] for node in result["nodos"]})
+
+    @patch("core.topology.local_wifi_context", return_value={})
+    @patch("core.topology.detectar_gateway", return_value="")
+    @patch("core.topology._local_ip", return_value="192.168.1.10")
+    def test_invalid_wifi_records_are_ignored(self, _local, _gateway, _wifi):
+        result = build_topology(
+            trace_targets=["198.51.100.20"],
+            discover_fn=lambda **kwargs: [],
+            traceroute_fn=lambda target: [],
+            ping_fn=self.ping,
+            wifi_provider=lambda: {"clientes": [{"mac": "AA:BB:CC:00:00:99"}, "malformed"]},
+        )
+
+        self.assertEqual(len(result["wifi"]["clientes"]), 1)
+        self.assertIn("Se ignoraron registros Wi-Fi con formato inválido.", result["advertencias"])
+
     def test_renderers_include_evidence_and_verification(self):
         result = {
             "ts": "now",

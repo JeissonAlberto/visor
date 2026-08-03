@@ -16,6 +16,7 @@ Uso:
     visor --noc                 # Misión NOC Completa (todos los agentes)
     visor --health              # Diagnóstico de calidad multi-capa
     visor --traceroute <host>   # Traceroute con latencia por salto
+    visor --topology [host]    # Topología LAN + ruta L3 verificada
 """
 
 import sys
@@ -42,6 +43,7 @@ def parse_args():
     parser.add_argument("--noc",        action="store_true",  help="Misión NOC Completa (todos los agentes)")
     parser.add_argument("--health",     action="store_true",  help="Diagnóstico de calidad de red multi-capa")
     parser.add_argument("--traceroute", metavar="HOST",       help="Traceroute con latencia por salto")
+    parser.add_argument("--topology", nargs="?", const="8.8.8.8", metavar="HOST", help="Mapea LAN y ruta L3 verificada hacia HOST")
     parser.add_argument("--version",    action="store_true",  help="Versión de Visor")
     return parser.parse_args()
 
@@ -133,6 +135,23 @@ def main():
             host_str = f" ({s['hostname']})" if s['hostname'] else ""
             marker = fallo("●") if s['timeout'] else ok("●")
             print(f"  {marker} Hop {s['hop']:>2}  {s['ip']:<18} {lat_str:<10}{host_str}")
+        separador()
+        sys.exit(0)
+
+    if args.topology:
+        from core.colores import banner, separador, titulo, ok, dim
+        from core.topology import build_topology, render_topology_text, save_topology_reports
+        banner()
+        print(f"\n  {titulo('TOPOLOGÍA VERIFICADA — LAN + RUTA L3')}")
+        separador()
+        print(f"  {dim('Se usarán ARP, ICMP, ruta por defecto y traceroute. No se inventan enlaces.')}")
+        print(f"  {dim('Destino de la traza: ' + args.topology)}\n")
+        topology = build_topology(trace_targets=[args.topology])
+        print(render_topology_text(topology))
+        paths = save_topology_reports(topology)
+        print(f"  {ok('Reportes guardados:')}")
+        for kind, path in paths.items():
+            print(f"    {kind.upper()}: {path}")
         separador()
         sys.exit(0)
 

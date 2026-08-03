@@ -90,6 +90,55 @@ class TopologyTests(unittest.TestCase):
         self.assertTrue(trace_edges)
         self.assertFalse(trace_edges[0]["verificado"])
 
+    @patch("core.topology.detectar_gateway", return_value="192.168.1.1")
+    @patch("core.topology._local_ip", return_value="192.168.1.10")
+    def test_marks_wifi_clients_from_ap_association_table(self, _local, _gateway):
+        wifi_mac = "AA:BB:CC:00:00:20"
+        result = build_topology(
+            trace_targets=[],
+            discover_fn=self.discover,
+            traceroute_fn=lambda target: [],
+            ping_fn=self.ping,
+            wifi_provider=lambda: {
+                "disponible": True,
+                "router": "192.168.1.1",
+                "fuente": "mikrotik_registration_table",
+                "clientes": [{
+                    "mac": wifi_mac,
+                    "interfaz": "wifi1",
+                    "senal": "-54dBm",
+                    "tx_rate": "300Mbps",
+                    "rx_rate": "240Mbps",
+                    "uptime": "1h",
+                    "fuente": "routeros_wifi",
+                }],
+            },
+        )
+        server = next(node for node in result["nodos"] if node.get("mac") == wifi_mac)
+        self.assertEqual(server["medio"], "wifi")
+        self.assertEqual(server["wifi"]["interfaz"], "wifi1")
+        self.assertIn("tabla_asociacion_wifi", server["evidencia"])
+        self.assertTrue(any("wifi_association" in edge["relation"] for edge in result["conexiones"]))
+        self.assertEqual(result["resumen"]["equipos_wifi"], 1)
+
+    @patch("core.topology.detectar_gateway", return_value="192.168.1.1")
+    @patch("core.topology._local_ip", return_value="192.168.1.10")
+    def test_includes_wifi_client_without_lan_ip(self, _local, _gateway):
+        result = build_topology(
+            trace_targets=[],
+            discover_fn=lambda **kwargs: [],
+            traceroute_fn=lambda target: [],
+            ping_fn=self.ping,
+            wifi_provider=lambda: {
+                "router": "192.168.1.1",
+                "clientes": [{"mac": "AA:BB:CC:00:00:99", "interfaz": "wifi2"}],
+            },
+        )
+        client = next(node for node in result["nodos"] if node.get("mac") == "AA:BB:CC:00:00:99")
+        self.assertEqual(client["rol"], "wifi_client")
+        self.assertEqual(client["medio"], "wifi")
+        self.assertEqual(client["ip"], "")
+
     def test_renderers_include_evidence_and_verification(self):
         result = {
             "ts": "now",

@@ -18,6 +18,7 @@
 | 🧙 Asistente de configuración | `visor --setup` guía paso a paso |
 | 🎨 Colores en consola | Interfaz legible, compatible Win/Linux/macOS |
 | 🗺️ Topología verificada | Mapa LAN + ruta L3 con evidencias ARP, ICMP, gateway y traceroute |
+| 📶 Clientes Wi-Fi | Detecta clientes de la LAN y confirma asociaciones mediante AP/MikroTik configurado |
 
 ---
 
@@ -143,6 +144,22 @@ Las credenciales de infraestructura siguen el mismo criterio:
 ---
 
 *Visor v2.0 — Python 3.10+ · Solo stdlib · Open source*
+
+
+#### Clientes Wi-Fi
+
+La búsqueda LAN también incluye equipos conectados por Wi-Fi si están en la misma
+subred. Para confirmar el medio inalámbrico y obtener interfaz, señal, tasas y
+uptime, configura el AP/MikroTik autorizado mediante variables de entorno:
+
+```powershell
+$env:VISOR_WIFI_ROUTER_HOST="IP_DEL_AP_O_MIKROTIK"
+$env:VISOR_MIKROTIK_PASS="tu_clave"
+```
+
+La tabla de asociaciones solo se consulta si ambas variables están configuradas.
+Si no se dispone del AP, el equipo se reporta como `lan_no_clasificado`: ARP no
+permite afirmar si la conexión remota es cableada o inalámbrica.
 
 ### Topología verificada
 

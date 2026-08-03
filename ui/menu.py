@@ -55,6 +55,8 @@ def menu_principal():
         elif opcion.upper() == "C": _menu_raptor_eye()
         elif opcion.upper() == "G": _menu_guardian_ai()
         elif opcion.upper() == "M": _menu_medusa_shield()
+        elif opcion.upper() == "I": _menu_infraestructura_l3()
+        elif opcion.upper() == "L": _menu_lan_vision()
         elif opcion.upper() == "O": _menu_orchestrator()
         elif opcion.upper() == "T": _menu_topology()
         elif opcion == "0":

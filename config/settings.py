@@ -6,8 +6,8 @@
 
 import os
 
-VERSION      = "5.2.0"
-APP_NAME     = "Visor v5.2 — NOC Command Suite"
+VERSION      = "5.2.1"
+APP_NAME     = "Visor v5.2.1 — NOC Command Suite"
 ORGANIZATION = "Jasol Group"
 AUTOR        = "Ing. Jeisson Alberto Sarmiento"
 UBICACION    = "Saravena, Arauca, Colombia"

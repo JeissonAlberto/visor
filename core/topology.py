@@ -19,6 +19,7 @@ import os
 from pathlib import Path
 import re
 import socket
+import xml.etree.ElementTree as ET
 from typing import Callable, Iterable
 
 from core.health import traceroute as _traceroute
@@ -551,8 +552,84 @@ def render_topology_dot(topology: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
+def render_topology_drawio(topology: dict) -> str:
+    """Exporta la topología como XML nativo para diagrams.net/draw.io."""
+    root = ET.Element("mxfile", {
+        "host": "app.diagrams.net",
+        "modified": datetime.now().isoformat(timespec="seconds"),
+        "agent": "Visor NOC Command Suite",
+        "version": "24.7.17",
+        "type": "device",
+    })
+    diagram = ET.SubElement(root, "diagram", {"id": "visor-topology", "name": "Topología verificada"})
+    graph = ET.SubElement(diagram, "mxGraphModel", {
+        "dx": "1422", "dy": "794", "grid": "1", "gridSize": "10",
+        "guides": "1", "tooltips": "1", "connect": "1", "arrows": "1",
+        "fold": "1", "page": "1", "pageScale": "1", "pageWidth": "1169",
+        "pageHeight": "827", "math": "0", "shadow": "0",
+    })
+    graph_root = ET.SubElement(graph, "root")
+    ET.SubElement(graph_root, "mxCell", {"id": "0"})
+    ET.SubElement(graph_root, "mxCell", {"id": "1", "parent": "0"})
+
+    nodes = topology.get("nodos", [])
+    cell_ids = {}
+    for index, node in enumerate(nodes):
+        cell_id = f"node_{index}"
+        cell_ids[node.get("id", str(index))] = cell_id
+        ip = node.get("ip") or "IP no asociada"
+        medium = node.get("medio", "lan_no_clasificado")
+        medium_label = "Wi-Fi" if medium == "wifi" else medium
+        label = f"{ip}\\n{node.get('tipo', 'Host')}\\n{node.get('hostname') or '—'}\\nMedio: {medium_label}"
+        if node.get("mac"):
+            label += f"\\nMAC: {node['mac']}"
+        if node.get("wifi", {}).get("senal"):
+            label += f"\\nSeñal: {node['wifi']['senal']}"
+        if node.get("rol") == "local":
+            style = "shape=ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;"
+        elif node.get("rol") == "gateway":
+            style = "shape=rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;"
+        elif medium == "wifi":
+            style = "rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;"
+        elif node.get("rol") == "route_hop":
+            style = "shape=hexagon;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;"
+        else:
+            style = "rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;"
+        cell = ET.SubElement(graph_root, "mxCell", {
+            "id": cell_id, "value": label, "style": style,
+            "vertex": "1", "parent": "1",
+        })
+        # Columnar layout keeps LAN and route nodes readable in draw.io.
+        x = 40 + (index % 3) * 300
+        y = 40 + (index // 3) * 150
+        ET.SubElement(cell, "mxGeometry", {
+            "x": str(x), "y": str(y), "width": "240", "height": "100", "as": "geometry",
+        })
+
+    for index, edge in enumerate(topology.get("conexiones", [])):
+        source = cell_ids.get(edge.get("source"))
+        target = cell_ids.get(edge.get("target"))
+        if not source or not target:
+            continue
+        evidence = ", ".join(edge.get("evidencia", []))
+        label = edge.get("relation", "")
+        if evidence:
+            label += f"\\n{evidence}"
+        style = "edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;"
+        style += "dashed=0;strokeColor=#4d4d4d;" if edge.get("verificado") else "dashed=1;strokeColor=#999999;"
+        cell = ET.SubElement(graph_root, "mxCell", {
+            "id": f"edge_{index}", "value": label, "style": style,
+            "edge": "1", "parent": "1", "source": source, "target": target,
+        })
+        ET.SubElement(cell, "mxGeometry", {"relative": "1", "as": "geometry"})
+
+    ET.indent(root, space="  ")
+    return ET.tostring(root, encoding="unicode", short_empty_elements=True) + "\n"
+
+
+
 def save_topology_reports(topology: dict, directory: Path | None = None) -> dict:
-    """Guarda JSON, TXT y DOT; devuelve solo rutas locales generadas."""
+    """Guarda JSON, TXT, DOT y DRAWIO; devuelve solo rutas locales generadas."""
     out_dir = Path(directory or REPORTS_DIR)
     out_dir.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -560,8 +637,10 @@ def save_topology_reports(topology: dict, directory: Path | None = None) -> dict
         "json": out_dir / f"topology_{stamp}.json",
         "txt": out_dir / f"topology_{stamp}.txt",
         "dot": out_dir / f"topology_{stamp}.dot",
+        "drawio": out_dir / f"topology_{stamp}.drawio",
     }
     paths["json"].write_text(json.dumps(topology, ensure_ascii=False, indent=2), encoding="utf-8")
     paths["txt"].write_text(render_topology_text(topology), encoding="utf-8")
     paths["dot"].write_text(render_topology_dot(topology), encoding="utf-8")
+    paths["drawio"].write_text(render_topology_drawio(topology), encoding="utf-8")
     return {key: str(path) for key, path in paths.items()}

@@ -17,6 +17,7 @@
 | 📋 Reportes automáticos | Guarda TXT o JSON en `/reports` |
 | 🧙 Asistente de configuración | `visor --setup` guía paso a paso |
 | 🎨 Colores en consola | Interfaz legible, compatible Win/Linux/macOS |
+| 🗺️ Topología verificada | Mapa LAN + ruta L3 con evidencias ARP, ICMP, gateway y traceroute |
 
 ---
 
@@ -142,3 +143,23 @@ Las credenciales de infraestructura siguen el mismo criterio:
 ---
 
 *Visor v2.0 — Python 3.10+ · Solo stdlib · Open source*
+
+### Topología verificada
+
+Para obtener un mapa conservador de la red desde el equipo donde ejecutas Visor:
+
+```bash
+visor --topology
+visor --topology 1.1.1.1
+```
+
+El comando descubre equipos LAN, identifica la ruta por defecto, traza la ruta L3
+hacia el destino y conserva la ficha disponible de cada equipo: IP, MAC, fabricante,
+hostname, puertos observados, riesgo, evidencias y verificaciones. Genera archivos
+JSON, TXT y Graphviz DOT en `reports/`.
+
+Visor no inventa conexiones entre equipos. ARP confirma vecindad L2 desde la estación,
+pero no el puerto físico del switch; traceroute confirma un camino L3 observado, pero
+no una conexión física. Las conexiones parciales o con timeout quedan marcadas como
+no verificadas.
+

@@ -35,6 +35,7 @@ def menu_principal():
         print(f"  {resaltar('I.')} 🖥️  Infraestructura L3 (MikroTik/Proxmox)")
         print(f"  {resaltar('L.')} 🌐  LAN Vision — Descubrimiento de Red")
         print(f"  {resaltar('O.')} 🕹️  Orchestrator (Misión Auto-Pilot)")
+        print(f"  {resaltar('T.')} 🗺️  Topología verificada (LAN + ruta L3)")
         print(f"  {resaltar('0.')} ❌  Salir")
         separador()
 
@@ -55,6 +56,7 @@ def menu_principal():
         elif opcion.upper() == "G": _menu_guardian_ai()
         elif opcion.upper() == "M": _menu_medusa_shield()
         elif opcion.upper() == "O": _menu_orchestrator()
+        elif opcion.upper() == "T": _menu_topology()
         elif opcion == "0":
             print(f"\n  {dim('─'*50)}")
             print(f"  {dim('Creado por ' + AUTOR)}")
@@ -702,6 +704,23 @@ def _menu_medusa_shield():
         color_status = ok if i['status'] == "VERIFIED" else fallo
         print(f"  [{color_status(i['status'])}] Módulo {resaltar(i['module'])}: {i['check']}")
 
+    separador()
+    input(f"  {dim('Enter para continuar...')}")
+
+
+def _menu_topology():
+    from core.topology import build_topology, render_topology_text, save_topology_reports
+
+    separador("TOPOLOGIA VERIFICADA — LAN + RUTA L3")
+    print(f"  {dim('La herramienta conserva solo conexiones respaldadas por ARP, ICMP, ruta o traceroute.')}\n")
+    target = input(f"  {info('Destino para trazar (Enter = 8.8.8.8):')} ").strip() or "8.8.8.8"
+    print(f"\n  {naranja('Descubriendo equipos y verificando conexiones...')}\n")
+    topology = build_topology(trace_targets=[target])
+    print(render_topology_text(topology))
+    paths = save_topology_reports(topology)
+    print(f"  {ok('Reportes guardados:')}")
+    for kind, path in paths.items():
+        print(f"    {kind.upper()}: {path}")
     separador()
     input(f"  {dim('Enter para continuar...')}")
 

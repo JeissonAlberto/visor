@@ -1,6 +1,6 @@
 @echo off
 echo.
-echo   [ Jasol Group - Instalador de Visor v4.7 ]
+echo   [ Jasol Group - Instalador de Visor v5.2.1 ]
 echo   ------------------------------------------
 echo.
 echo   1. Verificando Python...

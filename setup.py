@@ -19,7 +19,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="visor",
-    version="2.8.0",
+    version="5.2.1",
     description="Visor Raptor-Eye Edition — NOC & Security Suite by Jasol Group",
     author="Ing. Jeisson Alberto Sarmiento",
     author_email="jasolgroup@gmail.com",

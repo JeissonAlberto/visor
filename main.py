@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Visor v5.1 — NOC Command Suite
+Visor v5.2.1 — NOC Command Suite
 Jasol Group · Ing. Jeisson Alberto Sarmiento · Saravena, Arauca, Colombia
 
 Uso:
@@ -28,7 +28,7 @@ from ui.setup_wizard import setup_wizard
 def parse_args():
     parser = argparse.ArgumentParser(
         prog="visor",
-        description="Visor v5.1 NOC Command Suite · Jasol Group",
+        description="Visor v5.2.1 NOC Command Suite · Jasol Group",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )

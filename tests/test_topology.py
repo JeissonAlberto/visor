@@ -161,6 +161,26 @@ class TopologyTests(unittest.TestCase):
     @patch("core.topology.local_wifi_context", return_value={})
     @patch("core.topology.detectar_gateway", return_value="")
     @patch("core.topology._local_ip", return_value="192.168.1.10")
+    def test_discovery_failure_after_legacy_fallback_does_not_abort_report(self, _local, _gateway, _wifi):
+        def failing_discovery(*args, **kwargs):
+            if kwargs:
+                raise TypeError("legacy signature")
+            raise RuntimeError("scanner unavailable")
+
+        result = build_topology(
+            trace_targets=["198.51.100.20"],
+            discover_fn=failing_discovery,
+            traceroute_fn=lambda target: [],
+            ping_fn=self.ping,
+            wifi_provider=lambda: {},
+        )
+
+        self.assertEqual(result["evidencia"]["descubrimiento_lan"], "No se pudo completar el descubrimiento LAN.")
+        self.assertIn("198.51.100.20", {node["ip"] for node in result["nodos"]})
+
+    @patch("core.topology.local_wifi_context", return_value={})
+    @patch("core.topology.detectar_gateway", return_value="")
+    @patch("core.topology._local_ip", return_value="192.168.1.10")
     def test_invalid_wifi_records_are_ignored(self, _local, _gateway, _wifi):
         result = build_topology(
             trace_targets=["198.51.100.20"],

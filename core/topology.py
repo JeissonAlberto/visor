@@ -255,9 +255,16 @@ def build_topology(
         lan_devices = discover(rango=rango, scan_ports=scan_ports) or []
     except TypeError:
         # Compatibilidad con motores antiguos que no aceptan argumentos nombrados.
-        lan_devices = discover(rango, scan_ports) or []
-    except Exception as exc:
-        lan_error = f"No se pudo completar el descubrimiento LAN: {exc}"
+        try:
+            lan_devices = discover(rango, scan_ports) or []
+        except Exception:
+            lan_error = "No se pudo completar el descubrimiento LAN."
+        else:
+            lan_error = ""
+    except Exception:
+        # El escaneo LAN es una fuente opcional de evidencia; no debe impedir
+        # que se emita el resto del informe (gateway, Wi-Fi y ruta L3).
+        lan_error = "No se pudo completar el descubrimiento LAN."
     else:
         lan_error = ""
 

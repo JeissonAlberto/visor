@@ -553,7 +553,12 @@ def render_topology_dot(topology: dict) -> str:
 
 
 def render_topology_drawio(topology: dict) -> str:
-    """Exporta la topología como XML nativo para diagrams.net/draw.io."""
+    """Exporta una topología profesional y editable para diagrams.net/draw.io.
+
+    El diseño separa LAN/Wi-Fi de la ruta WAN/L3, conserva las evidencias en
+    cada enlace y agrega una leyenda para que el diagrama no confunda una ruta
+    observada con un enlace físico.
+    """
     root = ET.Element("mxfile", {
         "host": "app.diagrams.net",
         "modified": datetime.now().isoformat(timespec="seconds"),
@@ -561,72 +566,140 @@ def render_topology_drawio(topology: dict) -> str:
         "version": "24.7.17",
         "type": "device",
     })
-    diagram = ET.SubElement(root, "diagram", {"id": "visor-topology", "name": "Topología verificada"})
+    diagram = ET.SubElement(root, "diagram", {"id": "visor-topology", "name": "Visor NOC — Topología profesional"})
     graph = ET.SubElement(diagram, "mxGraphModel", {
-        "dx": "1422", "dy": "794", "grid": "1", "gridSize": "10",
+        "dx": "1600", "dy": "900", "grid": "1", "gridSize": "10",
         "guides": "1", "tooltips": "1", "connect": "1", "arrows": "1",
-        "fold": "1", "page": "1", "pageScale": "1", "pageWidth": "1169",
-        "pageHeight": "827", "math": "0", "shadow": "0",
+        "fold": "1", "page": "1", "pageScale": "1", "pageWidth": "1600",
+        "pageHeight": "900", "math": "0", "shadow": "0",
     })
     graph_root = ET.SubElement(graph, "root")
     ET.SubElement(graph_root, "mxCell", {"id": "0"})
     ET.SubElement(graph_root, "mxCell", {"id": "1", "parent": "0"})
 
+    summary = topology.get("resumen", {})
+    title = "VISOR NOC COMMAND SUITE — TOPOLOGÍA VERIFICADA"
+    subtitle = (
+        f"{topology.get('ts', '—')}  |  Subred: {topology.get('subred') or 'no determinada'}  |  "
+        f"Nodos: {summary.get('nodos', len(topology.get('nodos', [])))}  |  "
+        f"Wi-Fi confirmado: {summary.get('equipos_wifi', 0)}"
+    )
+    title_cell = ET.SubElement(graph_root, "mxCell", {
+        "id": "title", "value": f"{title}\\n{subtitle}",
+        "style": "text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=18;fontStyle=1;fontColor=#17324D;",
+        "vertex": "1", "parent": "1",
+    })
+    ET.SubElement(title_cell, "mxGeometry", {"x": "40", "y": "25", "width": "1450", "height": "55", "as": "geometry"})
+
+    def add_lane(cell_id: str, label: str, x: int, y: int, width: int, height: int, fill: str) -> None:
+        lane = ET.SubElement(graph_root, "mxCell", {
+            "id": cell_id, "value": label,
+            "style": f"swimlane;html=1;rounded=1;startSize=30;horizontal=1;fillColor={fill};strokeColor=#B7C5D3;fontColor=#17324D;fontStyle=1;",
+            "vertex": "1", "parent": "1",
+        })
+        ET.SubElement(lane, "mxGeometry", {"x": str(x), "y": str(y), "width": str(width), "height": str(height), "as": "geometry"})
+
+    add_lane("lane_lan", "LAN / WI-FI — VECINDAD LOCAL", 40, 105, 520, 420, "#F6FAFE")
+    add_lane("lane_wan", "WAN / RUTA L3 — CAMINO OBSERVADO", 590, 105, 900, 420, "#FAFAFA")
+
     nodes = topology.get("nodos", [])
-    cell_ids = {}
+    cell_ids: dict[str, str] = {}
+    local_nodes = [n for n in nodes if n.get("rol") == "local"]
+    gateways = [n for n in nodes if n.get("rol") == "gateway"]
+    wifi_nodes = [n for n in nodes if n.get("medio") == "wifi" and n.get("rol") != "local"]
+    route_nodes = [n for n in nodes if n.get("rol") == "route_hop"]
+    other_nodes = [n for n in nodes if n not in local_nodes + gateways + wifi_nodes + route_nodes]
+    positions: dict[str, tuple[int, int]] = {}
+    for i, node in enumerate(local_nodes):
+        positions[node.get("id", str(i))] = (70, 185 + i * 125)
+    for i, node in enumerate(gateways):
+        positions[node.get("id", str(i))] = (340, 185 + i * 125)
+    for i, node in enumerate(wifi_nodes):
+        positions[node.get("id", str(i))] = (70 + (i % 2) * 245, 380 + (i // 2) * 115)
+    for i, node in enumerate(other_nodes):
+        positions[node.get("id", str(i))] = (70 + (i % 2) * 245, 380 + (i // 2) * 115)
+    for i, node in enumerate(route_nodes):
+        positions[node.get("id", str(i))] = (620 + i * 165, 205)
+
     for index, node in enumerate(nodes):
+        node_id = node.get("id", str(index))
         cell_id = f"node_{index}"
-        cell_ids[node.get("id", str(index))] = cell_id
+        cell_ids[node_id] = cell_id
         ip = node.get("ip") or "IP no asociada"
         medium = node.get("medio", "lan_no_clasificado")
-        medium_label = "Wi-Fi" if medium == "wifi" else medium
-        label = f"{ip}\\n{node.get('tipo', 'Host')}\\n{node.get('hostname') or '—'}\\nMedio: {medium_label}"
+        medium_label = "Wi-Fi confirmado" if medium == "wifi" else ("LAN / medio no clasificado" if medium == "lan_no_clasificado" else medium)
+        lines = [ip, f"{node.get('tipo', 'Host')}  ·  {node.get('rol', 'host')}"]
+        if node.get("hostname"):
+            lines.append(str(node["hostname"]))
+        lines.append(medium_label)
         if node.get("mac"):
-            label += f"\\nMAC: {node['mac']}"
+            lines.append(f"MAC: {node['mac']}")
         if node.get("wifi", {}).get("senal"):
-            label += f"\\nSeñal: {node['wifi']['senal']}"
+            lines.append(f"Señal: {node['wifi']['senal']}")
+        evidence = node.get("evidencia", [])
+        if evidence:
+            lines.append("Evidencia: " + ", ".join(evidence[:3]))
+        label = "\\n".join(lines)
         if node.get("rol") == "local":
-            style = "shape=ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;"
+            style = "shape=ellipse;whiteSpace=wrap;html=1;fillColor=#E8F1FB;strokeColor=#2878C8;strokeWidth=2;fontColor=#17324D;align=left;spacingLeft=10;"
         elif node.get("rol") == "gateway":
-            style = "shape=rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;"
+            style = "shape=rhombus;whiteSpace=wrap;html=1;fillColor=#FFF4CE;strokeColor=#D6A300;strokeWidth=2;fontColor=#5D4800;align=left;spacingLeft=10;"
         elif medium == "wifi":
-            style = "rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;"
+            style = "rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F7EE;strokeColor=#178A44;strokeWidth=2;fontColor=#14532D;align=left;spacingLeft=10;"
         elif node.get("rol") == "route_hop":
-            style = "shape=hexagon;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;"
+            style = "shape=hexagon;whiteSpace=wrap;html=1;fillColor=#EEF1F4;strokeColor=#67727E;fontColor=#26323D;align=left;spacingLeft=10;"
         else:
-            style = "rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;"
+            style = "rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#7B8794;fontColor=#26323D;align=left;spacingLeft=10;"
+        if "ALTO" in str(node.get("riesgo", "")):
+            style += "strokeColor=#C0392B;"
         cell = ET.SubElement(graph_root, "mxCell", {
             "id": cell_id, "value": label, "style": style,
             "vertex": "1", "parent": "1",
         })
-        # Columnar layout keeps LAN and route nodes readable in draw.io.
-        x = 40 + (index % 3) * 300
-        y = 40 + (index // 3) * 150
-        ET.SubElement(cell, "mxGeometry", {
-            "x": str(x), "y": str(y), "width": "240", "height": "100", "as": "geometry",
-        })
+        x, y = positions.get(node_id, (70 + (index % 5) * 220, 550 + (index // 5) * 110))
+        width = 220 if node.get("rol") != "route_hop" else 150
+        ET.SubElement(cell, "mxGeometry", {"x": str(x), "y": str(y), "width": str(width), "height": "92", "as": "geometry"})
 
     for index, edge in enumerate(topology.get("conexiones", [])):
         source = cell_ids.get(edge.get("source"))
         target = cell_ids.get(edge.get("target"))
         if not source or not target:
             continue
+        relation = edge.get("relation", "")
         evidence = ", ".join(edge.get("evidencia", []))
-        label = edge.get("relation", "")
-        if evidence:
-            label += f"\\n{evidence}"
-        style = "edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;"
-        style += "dashed=0;strokeColor=#4d4d4d;" if edge.get("verificado") else "dashed=1;strokeColor=#999999;"
+        label = relation + (f"\\n{evidence}" if evidence else "")
+        if "wifi" in relation:
+            color = "#178A44"
+        elif "l3" in relation:
+            color = "#3978C4"
+        elif "default_route" in relation:
+            color = "#B88700"
+        else:
+            color = "#59636E"
+        style = f"edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor={color};fontColor=#26323D;"
+        style += "dashed=0;" if edge.get("verificado") else "dashed=1;strokeWidth=1;"
         cell = ET.SubElement(graph_root, "mxCell", {
             "id": f"edge_{index}", "value": label, "style": style,
             "edge": "1", "parent": "1", "source": source, "target": target,
         })
         ET.SubElement(cell, "mxGeometry", {"relative": "1", "as": "geometry"})
 
+    legend_text = (
+        "LEYENDA\\n"
+        "━━  Conexión verificada\\n"
+        "- -  Conexión parcial / no verificada\\n"
+        "Azul: estación local   Amarillo: gateway   Verde: Wi-Fi confirmado   Gris: salto L3\\n"
+        "La ruta L3 es un camino observado; no representa cableado físico."
+    )
+    legend = ET.SubElement(graph_root, "mxCell", {
+        "id": "legend", "value": legend_text,
+        "style": "rounded=1;whiteSpace=wrap;html=1;fillColor=#F3F6F9;strokeColor=#B7C5D3;fontColor=#405465;align=left;spacingLeft=12;verticalAlign=middle;",
+        "vertex": "1", "parent": "1",
+    })
+    ET.SubElement(legend, "mxGeometry", {"x": "40", "y": "580", "width": "1050", "height": "105", "as": "geometry"})
+
     ET.indent(root, space="  ")
     return ET.tostring(root, encoding="unicode", short_empty_elements=True) + "\n"
-
-
 
 def save_topology_reports(topology: dict, directory: Path | None = None) -> dict:
     """Guarda JSON, TXT, DOT y DRAWIO; devuelve solo rutas locales generadas."""

@@ -23,6 +23,10 @@ class DrawioTopologyTests(unittest.TestCase):
         xml = render_topology_drawio(self.sample())
         root = ET.fromstring(xml)
         self.assertEqual(root.tag, "mxfile")
+        self.assertIsNotNone(root.find('.//mxCell[@id="title"]'))
+        self.assertIsNotNone(root.find('.//mxCell[@id="lane_lan"]'))
+        self.assertIsNotNone(root.find('.//mxCell[@id="lane_wan"]'))
+        self.assertIsNotNone(root.find('.//mxCell[@id="legend"]'))
         self.assertIsNotNone(root.find('.//mxCell[@id="node_0"]'))
         self.assertIsNotNone(root.find('.//mxCell[@id="edge_0"]'))
 

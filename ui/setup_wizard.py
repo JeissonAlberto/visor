@@ -3,6 +3,7 @@ ui/setup_wizard.py — Asistente interactivo de primera configuración.
 """
 
 from core.colores import banner, separador, titulo, info, ok, warn, dim, resaltar
+from getpass import getpass
 import re
 
 
@@ -84,7 +85,7 @@ def _paso_smtp():
         return None
 
     usuario = input("  Correo de envío  (Gmail): ").strip()
-    clave   = input("  Contraseña de aplicación (16 chars): ").strip()
+    clave   = getpass("  Contraseña de aplicación (16 chars): ").strip()
     destino = input("  Correo destinatario: ").strip()
 
     return {"usuario": usuario, "clave": clave, "destino": destino}

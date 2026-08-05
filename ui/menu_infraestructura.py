@@ -7,6 +7,7 @@ Integra: MikroTik Telemetry + Proxmox VE API
 from core.colores import (
     separador, titulo, info, ok, fallo, warn, dim, resaltar, naranja, azul
 )
+from getpass import getpass
 from config.settings import (
     MIKROTIK_HOST, MIKROTIK_USER, MIKROTIK_PASS,
     PROXMOX_HOST, PROXMOX_USER, PROXMOX_PASS
@@ -47,7 +48,7 @@ def _menu_mikrotik():
     separador("📡 MikroTik RouterOS — Telemetría en Vivo")
     host = input(f"  {info('IP del MikroTik')} [{MIKROTIK_HOST}]: ").strip() or MIKROTIK_HOST
     user = input(f"  {info('Usuario')} [{MIKROTIK_USER}]: ").strip() or MIKROTIK_USER
-    pwd  = input(f"  {info('Password')}: ").strip() or MIKROTIK_PASS
+    pwd  = getpass(f"  {info('Password')}: ").strip() or MIKROTIK_PASS
 
     print(f"\n  {naranja('Conectando a')} {resaltar(host)}...\n")
     data = get_mikrotik_info(host, user, pwd)
@@ -106,7 +107,7 @@ def _menu_proxmox():
     separador("🖥️  Proxmox VE — Estado del Cluster")
     host       = input(f"  {info('IP del Proxmox')} [{PROXMOX_HOST}]: ").strip() or PROXMOX_HOST
     token_id   = input(f"  {info('Token ID')} [root@pam!visor]: ").strip() or "root@pam!visor"
-    token_sec  = input(f"  {info('Token Secret')}: ").strip()
+    token_sec  = getpass(f"  {info('Token Secret')}: ").strip()
 
     print(f"\n  {naranja('Consultando API Proxmox en')} {resaltar(host+':8006')}...\n")
 

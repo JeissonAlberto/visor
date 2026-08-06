@@ -643,6 +643,11 @@ def render_topology_drawio(topology: dict) -> str:
             lines.append(f"MAC: {node['mac']}")
         if node.get("wifi", {}).get("senal"):
             lines.append(f"Señal: {node['wifi']['senal']}")
+        monitor = node.get("monitorizacion", {})
+        if monitor:
+            loss = monitor.get("perdida_pct", "—")
+            avg = monitor.get("promedio_ms", "—")
+            lines.append(f"ICMP: {loss}% pérdida / {avg} ms")
         evidence = node.get("evidencia", [])
         if evidence:
             lines.append("Evidencia: " + ", ".join(evidence[:3]))

@@ -180,3 +180,21 @@ pero no el puerto físico del switch; traceroute confirma un camino L3 observado
 no una conexión física. Las conexiones parciales o con timeout quedan marcadas como
 no verificadas.
 
+
+
+### Monitor 24/7 estilo PingPlotter
+
+Para observar continuamente latencia y pérdida por salto, Visor incluye un
+monitor multiplataforma basado en `traceroute` y `ping`. No modifica equipos:
+solo toma muestras ICMP y actualiza los archivos vivos en `reports/`.
+
+```powershell
+python .\main.py --topology-watch 8.8.8.8 --watch-interval 60
+```
+
+`--watch-interval` está expresado en segundos y `--watch-cycles N` permite
+limitar el número de muestras. Con `--watch-cycles 0` permanece activo hasta
+presionar `Ctrl+C`. Se actualizan `topology_live.drawio`, `topology_live.json`,
+`topology_live.txt`, además del historial JSONL y CSV. El draw.io incluye el
+promedio ICMP y porcentaje de pérdida por salto.
+

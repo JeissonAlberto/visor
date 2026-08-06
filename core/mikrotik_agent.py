@@ -13,23 +13,22 @@ def _ssh_cmd(host: str, user: str, password: str, command: str, timeout: int = 5
     """Ejecuta un comando RouterOS vía SSH y retorna la salida."""
     try:
         resultado = subprocess.run(
-            ["ssh", "-o", "StrictHostKeyChecking=no", "-o", f"ConnectTimeout={timeout}",
+            # Accept a new key once, but reject unexpected changes to a known key.
+            ["ssh", "-o", "StrictHostKeyChecking=accept-new", "-o", f"ConnectTimeout={timeout}",
              f"{user}@{host}", command],
             capture_output=True, text=True, timeout=timeout + 2
         )
         return resultado.stdout.strip()
-    except Exception as e:
+    except (OSError, subprocess.SubprocessError) as e:
         return f"ERROR: {e}"
 
 def ping_mikrotik(host: str) -> bool:
     """Verifica si el MikroTik responde al ping."""
     try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(2)
-        res = s.connect_ex((host, 22))
-        s.close()
-        return res == 0
-    except:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(2)
+            return s.connect_ex((host, 22)) == 0
+    except OSError:
         return False
 
 def get_mikrotik_info(host: str, user: str = "admin", password: str = "") -> dict:
@@ -54,7 +53,7 @@ def get_mikrotik_info(host: str, user: str = "admin", password: str = "") -> dic
     cpu = _ssh_cmd(host, user, password, ":put [/system resource get cpu-load]")
     try:
         data["cpu_load"] = int(cpu)
-    except:
+    except (TypeError, ValueError):
         data["cpu_load"] = None
 
     # Memoria libre
@@ -64,14 +63,14 @@ def get_mikrotik_info(host: str, user: str = "admin", password: str = "") -> dic
         data["mem_free_mb"]  = round(int(mem_free) / 1024 / 1024, 1)
         data["mem_total_mb"] = round(int(mem_total) / 1024 / 1024, 1)
         data["mem_used_pct"] = round((1 - int(mem_free) / int(mem_total)) * 100, 1)
-    except:
+    except (TypeError, ValueError, ZeroDivisionError):
         data["mem_free_mb"] = data["mem_total_mb"] = data["mem_used_pct"] = None
 
     # Temperatura (si aplica CCR/hAP)
     temp = _ssh_cmd(host, user, password, ":put [/system health get temperature]")
     try:
         data["temperature"] = float(temp)
-    except:
+    except (TypeError, ValueError):
         data["temperature"] = None
 
     # Versión RouterOS
@@ -97,7 +96,7 @@ def get_interfaces_traffic(host: str, user: str = "admin", password: str = "") -
                     "rx_mbps": round(int(parts[1]) / 1_000_000, 2),
                     "tx_mbps": round(int(parts[2]) / 1_000_000, 2),
                 })
-            except:
+            except (TypeError, ValueError):
                 pass
     return interfaces
 
@@ -106,5 +105,5 @@ def get_active_clients(host: str, user: str = "admin", password: str = "") -> in
     raw = _ssh_cmd(host, user, password, ":put [:len [/ip dhcp-server lease find status=bound]]")
     try:
         return int(raw.strip())
-    except:
+    except (TypeError, ValueError):
         return 0

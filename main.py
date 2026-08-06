@@ -44,6 +44,9 @@ def parse_args():
     parser.add_argument("--health",     action="store_true",  help="Diagnóstico de calidad de red multi-capa")
     parser.add_argument("--traceroute", metavar="HOST",       help="Traceroute con latencia por salto")
     parser.add_argument("--topology", nargs="?", const="8.8.8.8", metavar="HOST", help="Mapea LAN y ruta L3 verificada hacia HOST")
+    parser.add_argument("--topology-watch", nargs="?", const="8.8.8.8", metavar="HOST", help="Monitor continuo de ruta estilo PingPlotter")
+    parser.add_argument("--watch-interval", type=int, default=60, metavar="SEG", help="Intervalo del monitor continuo (mínimo 10 s)")
+    parser.add_argument("--watch-cycles", type=int, default=0, metavar="N", help="Número de muestras; 0 mantiene el monitor activo")
     parser.add_argument("--version",    action="store_true",  help="Versión de Visor")
     return parser.parse_args()
 
@@ -137,6 +140,11 @@ def main():
             print(f"  {marker} Hop {s['hop']:>2}  {s['ip']:<18} {lat_str:<10}{host_str}")
         separador()
         sys.exit(0)
+
+    if args.topology_watch:
+        from core.path_monitor import run_topology_watch
+        run_topology_watch(args.topology_watch, interval_s=args.watch_interval, cycles=args.watch_cycles)
+        return
 
     if args.topology:
         from core.colores import banner, separador, titulo, ok, dim

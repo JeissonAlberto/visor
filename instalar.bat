@@ -75,5 +75,5 @@ echo.
 echo   INSTALACION TERMINADA.
 echo   Abre una terminal nueva y escribe: visor
  echo.
-pause
+if not defined VISOR_NO_PAUSE pause
 endlocal

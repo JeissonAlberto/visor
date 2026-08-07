@@ -8,6 +8,7 @@ Uso:
     visor --scan                # Escaneo rápido de red
     visor --web                 # Solo servicios web
     visor --internet            # Test de calidad de internet
+    visor --watch               # Monitoreo continuo LAN + servicios públicos
     visor --setup               # Asistente de configuración
     visor --report              # Ver último reporte
     visor --connect             # Handshake con MikroTik/Proxmox
@@ -35,6 +36,7 @@ def parse_args():
     parser.add_argument("--scan",       action="store_true",  help="Escaneo rápido de red")
     parser.add_argument("--web",        action="store_true",  help="Verificar servicios web")
     parser.add_argument("--internet",   action="store_true",  help="Test de calidad de internet")
+    parser.add_argument("--watch",      action="store_true",  help="Monitoreo continuo LAN + servicios públicos")
     parser.add_argument("--setup",      action="store_true",  help="Asistente de configuración")
     parser.add_argument("--report",     action="store_true",  help="Ver último reporte guardado")
     parser.add_argument("--connect",    action="store_true",  help="Conectar con infraestructura (MikroTik/Proxmox)")
@@ -62,6 +64,12 @@ def main():
 
     if args.setup:
         setup_wizard()
+        sys.exit(0)
+
+    if args.watch:
+        from config.settings import INTERVALO_MONITOREO
+        from core.monitor import monitoreo_continuo
+        monitoreo_continuo(intervalo=INTERVALO_MONITOREO)
         sys.exit(0)
 
     # ── Flags directos sin menú ───────────────────────────────────────────

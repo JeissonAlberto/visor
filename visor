@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Lanzador portable de Visor para Linux/macOS.
+set -Eeuo pipefail
+
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do
+    DIR="$(cd -P "$(dirname -- "$SOURCE")" >/dev/null 2>&1 && pwd)"
+    SOURCE="$(readlink "$SOURCE")"
+    [[ "$SOURCE" != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+ROOT="$(cd -P "$(dirname -- "$SOURCE")" >/dev/null 2>&1 && pwd)"
+PYTHON="$ROOT/.venv/bin/python"
+
+if [ ! -x "$PYTHON" ]; then
+    echo "Visor no está instalado. Ejecuta ./instalar.sh dentro del repositorio." >&2
+    exit 1
+fi
+
+exec "$PYTHON" "$ROOT/main.py" "$@"

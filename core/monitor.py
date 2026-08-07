@@ -202,6 +202,7 @@ def monitoreo_continuo(intervalo: int = 60, callback=None):
     from core.colores import ok, fallo, info, warn, dim, separador, resaltar
 
     estados_anteriores: dict = {}
+    estados_web_anteriores: dict = {}
     ciclo = 0
 
     # Detectar red una sola vez al inicio si no hay config
@@ -260,7 +261,28 @@ def monitoreo_continuo(intervalo: int = 60, callback=None):
                 up_w  = sum(1 for s in servicios if s.get("online"))
                 tot_w = len(servicios)
                 color_cat = ok if up_w == tot_w else (warn if up_w > 0 else fallo)
-                
+
+                # Alertar solo en cambios de estado, no en cada ciclo.
+                for servicio in servicios:
+                    clave = servicio.get("url") or servicio.get("nombre")
+                    estado = "UP" if servicio.get("online") else "DOWN"
+                    anterior = estados_web_anteriores.get(clave)
+                    if estado == "DOWN" and anterior != "DOWN":
+                        enviar_alerta(
+                            tipo="caida",
+                            nombre=servicio.get("nombre", clave),
+                            ip=clave,
+                            detalles=f"HTTP: {servicio.get('http') or 'sin respuesta'}; {servicio.get('error') or 'servicio no disponible'}",
+                        )
+                    elif estado == "UP" and anterior == "DOWN":
+                        enviar_alerta(
+                            tipo="recuperado",
+                            nombre=servicio.get("nombre", clave),
+                            ip=clave,
+                            detalles=f"HTTP: {servicio.get('http') or 'OK'}; latencia: {servicio.get('latencia') or '—'} ms",
+                        )
+                    estados_web_anteriores[clave] = estado
+
                 # Vista compacta por categoría
                 print(f"    {cat:<22} {color_cat(f'{up_w}/{tot_w}')}", end=" ")
                 # Solo mostrar fallos específicos

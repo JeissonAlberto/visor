@@ -8,11 +8,9 @@ version = "5.2.1"
 description = "Visor Command Center — Jasol Group NOC Suite"
 authors = [{name = "Ing. Jeisson Alberto Sarmiento"}]
 requires-python = ">=3.10"
-dependencies = [
-    "requests",
-    "psutil",
-    "colorama"
-]
+# Visor funciona con la biblioteca estándar de Python.
+# El instalador usa --no-deps para evitar configuraciones adicionales.
+dependencies = []
 
 [project.scripts]
 visor = "main:main"

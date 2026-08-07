@@ -19,10 +19,15 @@
 | 🎨 Colores en consola | Interfaz legible, compatible Win/Linux/macOS |
 | 🗺️ Topología verificada | Mapa LAN + ruta L3 con evidencias ARP, ICMP, gateway y traceroute |
 | 📶 Clientes Wi-Fi | Detecta clientes de la LAN y confirma asociaciones mediante AP/MikroTik configurado |
+| 🌍 Vigilancia pública | Comprueba continuamente redes sociales, bancos y portales oficiales configurados |
 
 ---
 
-## 🚀 Instalación (una sola vez)
+## 🚀 Instalación: clonar y escribir `visor`
+
+La instalación crea un entorno aislado dentro del repositorio, instala el comando y lo
+registra en el PATH del usuario. No necesitas activar entornos virtuales, ejecutar `pip`
+ni editar archivos de configuración.
 
 ### Windows
 ```powershell
@@ -31,17 +36,33 @@ cd visor
 .\instalar.bat
 ```
 
+Después abre una terminal nueva. Desde cualquier carpeta podrás ejecutar:
+
+```powershell
+visor
+visor --version
+```
+
 ### Linux / macOS
 ```bash
 git clone https://github.com/JeissonAlberto/visor.git
 cd visor
-chmod +x instalar.sh
+chmod +x instalar.sh visor
 ./instalar.sh
 ```
 
-> Después de instalar, **cierra y vuelve a abrir la terminal**. El comando `visor` quedará disponible en cualquier carpeta.
+Después de la instalación, desde cualquier carpeta:
 
-**Requisitos:** Python 3.10+ · Sin dependencias externas (solo stdlib)
+```bash
+visor
+visor --version
+```
+
+El instalador usa `.venv/` dentro del repositorio, no modifica el Python del sistema y
+no instala dependencias externas de Visor. Si mueves el repositorio después de instalar,
+vuelve a ejecutar el instalador para actualizar la ruta del comando.
+
+**Requisito:** Python 3.10+.
 
 ---
 
@@ -52,6 +73,7 @@ visor                # Menú interactivo principal
 visor --scan         # Escaneo único de dispositivos
 visor --web          # Verificar servicios web
 visor --internet     # Test de calidad de internet
+visor --watch        # Monitoreo continuo LAN + servicios públicos
 visor --setup        # Asistente de configuración
 visor --report       # Ver último reporte
 visor --version      # Ver versión
@@ -105,6 +127,20 @@ SERVICIOS_WEB = [
 
 RANGO_SCAN = "192.168.1.0/24"
 ```
+
+### Vigilancia pública continua
+
+El modo `visor --watch` comprueba la disponibilidad HTTP de los servicios incluidos en
+estas categorías: redes sociales, bancos colombianos y portales oficiales de Saravena,
+Arauca y Sisbén. Si un servicio cambia de disponible a caído, o se recupera, Visor genera
+una alerta de transición y la registra en pantalla/correo si el correo está configurado.
+
+La lista inicial incluye únicamente páginas públicas. Visor **no** inicia sesión en
+WhatsApp, bancos, redes sociales o portales estatales; no lee chats, saldos, movimientos,
+contraseñas ni documentos personales. Para ampliar la vigilancia se agregan URLs públicas
+en `core/web_service.py` o en `config/device.py`. No se rastrea automáticamente todo
+internet ni todos los dominios `.gov`, porque eso sería impreciso y podría generar tráfico
+indebido: se trabaja con una lista explícita de portales autorizados.
 
 ### Alertas de correo (sin secretos en Git)
 

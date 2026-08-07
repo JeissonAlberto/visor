@@ -30,6 +30,21 @@ SERVICIOS_BUILTIN = {
         {"nombre": "WhatsApp Web",      "url": "https://web.whatsapp.com"},
         {"nombre": "LinkedIn",          "url": "https://www.linkedin.com"},
     ],
+    # Solo comprueba disponibilidad pública. No inicia sesión ni consulta
+    # cuentas, saldos, movimientos o datos personales.
+    "Bancos Colombia": [
+        {"nombre": "Davivienda",         "url": "https://www.davivienda.com/"},
+        {"nombre": "Bancolombia",        "url": "https://www.bancolombia.com/personas"},
+        {"nombre": "Banco de Bogotá",    "url": "https://www.bancodebogota.com/personas"},
+        {"nombre": "BBVA Colombia",      "url": "https://www.bbva.com.co/"},
+    ],
+    # Lista inicial de portales oficiales solicitados. Para ampliar la
+    # cobertura se agregan URLs explícitas, no se rastrea todo internet.
+    "Entidades públicas": [
+        {"nombre": "Alcaldía de Saravena", "url": "https://www.saravena-arauca.gov.co/"},
+        {"nombre": "Gobernación de Arauca", "url": "https://arauca.gov.co/"},
+        {"nombre": "Portal Sisbén IV", "url": "https://portal-sisben.sisben.gov.co/"},
+    ],
     "Inteligencias Artificiales": [
         {"nombre": "ChatGPT",           "url": "https://chat.openai.com"},
         {"nombre": "Gemini",            "url": "https://gemini.google.com"},

@@ -21,14 +21,14 @@ if %errorlevel% equ 0 (
 if not defined PYTHON (
     echo   [ERROR] Python 3.10+ no esta instalado o no esta en el PATH.
     echo   Descargalo desde https://www.python.org/downloads/windows/
-    pause
+    if not defined VISOR_NO_PAUSE pause
     exit /b 1
 )
 
 %PYTHON% -c "import sys; raise SystemExit(0 if sys.version_info >= (3,10) else 1)"
 if %errorlevel% neq 0 (
     echo   [ERROR] Visor necesita Python 3.10 o superior.
-    pause
+    if not defined VISOR_NO_PAUSE pause
     exit /b 1
 )
 
@@ -37,7 +37,7 @@ if not exist "%VENV%\Scripts\python.exe" (
     %PYTHON% -m venv "%VENV%"
     if %errorlevel% neq 0 (
         echo   [ERROR] No se pudo crear el entorno virtual.
-        pause
+        if not defined VISOR_NO_PAUSE pause
         exit /b 1
     )
 ) else (
@@ -49,7 +49,7 @@ set "PIP_USER=0"
 "%VENV%\Scripts\python.exe" -m pip install --no-user --editable "%ROOT%" --no-deps --quiet
 if %errorlevel% neq 0 (
     echo   [ERROR] No se pudo instalar Visor.
-    pause
+    if not defined VISOR_NO_PAUSE pause
     exit /b 1
 )
 
@@ -67,7 +67,7 @@ echo   [4/4] Verificando comando visor...
 call "%ROOT%\visor.bat" --version
 if %errorlevel% neq 0 (
     echo   [ERROR] La comprobacion de Visor fallo.
-    pause
+    if not defined VISOR_NO_PAUSE pause
     exit /b 1
 )
 

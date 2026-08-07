@@ -16,6 +16,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Callable
 
+from core.telemetry import TelemetryClient
 from core.topology import REPORTS_DIR, build_topology, render_topology_drawio, render_topology_text
 
 
@@ -134,6 +135,7 @@ def run_topology_watch(host: str = "8.8.8.8", interval_s: int = 60,
     interval_s = max(10, int(interval_s))
     cycles = max(0, int(cycles))
     completed = 0
+    telemetry = TelemetryClient()
     print(f"Monitor de topología activo: {host} cada {interval_s}s | Ctrl+C para detener")
     try:
         while cycles == 0 or completed < cycles:
@@ -141,11 +143,14 @@ def run_topology_watch(host: str = "8.8.8.8", interval_s: int = 60,
             try:
                 topology = monitor_once(host, ping_count=ping_count)
                 paths = write_live_reports(topology, report_dir)
+                telemetry_result = telemetry.send_topology(topology)
                 metrics = topology.get("monitorizacion", {}).get("saltos", [])
                 loss = [m.get("perdida_pct") for m in metrics if m.get("perdida_pct") is not None]
                 avg_loss = round(sum(loss) / len(loss), 1) if loss else "—"
                 print(f"[{datetime.now().isoformat(timespec='seconds')}] muestra={completed + 1} saltos={len(metrics)} pérdida_media={avg_loss}%")
                 print(f"  draw.io: {paths['drawio']}")
+                if telemetry_result.get("sent"):
+                    print("  telemetría: evento enviado")
             except (OSError, RuntimeError, ValueError) as exc:
                 print(f"[{datetime.now().isoformat(timespec='seconds')}] muestra no disponible: {exc}")
             completed += 1

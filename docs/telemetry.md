@@ -17,11 +17,30 @@ No se incluyen contraseñas, tokens, variables de entorno ni salidas completas
 de comandos. Las IP/host originales solo se incluyen si la instalación NOC lo
 habilita conscientemente.
 
-## Configuración segura
+## Prueba local sin Jitsu
+
+En una primera terminal, inicia el receptor seguro de localhost:
+
+```powershell
+python .\scripts\telemetry_test_adapter.py --port 3049 --once
+```
+
+En otra terminal, activa el envío del monitor de topología durante una muestra:
 
 ```powershell
 $env:VISOR_TELEMETRY_ENABLED = "1"
 $env:VISOR_TELEMETRY_URL = "http://127.0.0.1:3049/events"
+python .\main.py --topology-watch 8.8.8.8 --watch-interval 10 --watch-cycles 1
+```
+
+El evento se guardará en `reports/telemetry_test_events.jsonl`. El receptor
+solo escucha en localhost y valida el esquema `visor.telemetry.v1`.
+
+## Configuración segura
+
+```powershell
+$env:VISOR_TELEMETRY_ENABLED = "1"
+$env:VISOR_TELEMETRY_URL = "https://tu-endpoint-de-ingestión/events"
 $env:VISOR_TELEMETRY_TOKEN = "token-de-prueba"
 ```
 

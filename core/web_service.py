@@ -8,6 +8,7 @@ import socket
 import ssl
 import time
 import json
+import ipaddress
 from config.device import SERVICIOS_WEB
 
 
@@ -220,16 +221,19 @@ def geolocalizacion_ip(ip: str) -> dict:
     Geolocaliza una IP usando ip-api.com (gratuito, sin clave).
     Devuelve dict con país, ciudad, ISP, lat/lon, etc.
     """
-    # No geolocalizar IPs privadas
-    partes = ip.strip().split(".")
-    if len(partes) == 4:
-        a, b = int(partes[0]), int(partes[1])
-        if a == 10 or a == 127:
-            return {"ip": ip, "privada": True, "info": "IP privada — sin geolocalización"}
-        if a == 172 and 16 <= b <= 31:
-            return {"ip": ip, "privada": True, "info": "IP privada — sin geolocalización"}
-        if a == 192 and b == 168:
-            return {"ip": ip, "privada": True, "info": "IP privada — sin geolocalización"}
+    # Valida la entrada antes de construir la URL externa. Además de evitar
+    # errores con valores incompletos, esto impide enviar texto arbitrario al
+    # proveedor de geolocalización.
+    ip = str(ip or "").strip()
+    try:
+        address = ipaddress.ip_address(ip)
+    except ValueError:
+        return {"ip": ip, "privada": False, "error": "IP inválida"}
+
+    # No geolocalizar direcciones que no son públicamente enroutables
+    # (privadas, loopback, link-local, reservadas o de uso especial).
+    if not address.is_global:
+        return {"ip": ip, "privada": True, "info": "IP privada — sin geolocalización"}
 
     try:
         url = "http://ip-api.com/json/" + ip + "?fields=status,message,country,countryCode,regionName,city,zip,lat,lon,isp,org,as,query&lang=es"

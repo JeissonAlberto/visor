@@ -86,15 +86,20 @@ def verificar_url(url: str, timeout: int = 5) -> dict:
     t0    = time.monotonic()
     
     # 1. Medir latencia de red pura (TCP Handshake) - similar al ping
+    sock = None
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(timeout)
         t_sock = time.monotonic()
         sock.connect((host, port))
         t_red  = round((time.monotonic() - t_sock) * 1000, 1)
-        sock.close()
     except Exception:
         pass
+    finally:
+        # También cerrar el socket cuando connect() falla; de lo contrario
+        # los escaneos repetidos pueden agotar descriptores del proceso.
+        if sock is not None:
+            sock.close()
 
     # 2. Medir tiempo de respuesta Web (HTTP/SSL) usando HEAD
     ctx = _ssl_ctx()

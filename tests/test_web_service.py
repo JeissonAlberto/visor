@@ -1,7 +1,8 @@
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
+from urllib.error import URLError
 
-from core.web_service import geolocalizacion_ip
+from core.web_service import geolocalizacion_ip, verificar_url
 
 
 class WebServiceTests(unittest.TestCase):
@@ -19,6 +20,18 @@ class WebServiceTests(unittest.TestCase):
         self.assertTrue(result["privada"])
         self.assertIn("sin geolocalización", result["info"])
         urlopen.assert_not_called()
+
+    def test_failed_tcp_connect_closes_socket(self):
+        sock = Mock()
+        sock.connect.side_effect = OSError("connection refused")
+        with patch("core.web_service.socket.socket", return_value=sock), patch(
+            "core.web_service.urllib.request.urlopen",
+            side_effect=URLError("web unavailable"),
+        ):
+            result = verificar_url("http://example.test", timeout=1)
+
+        self.assertFalse(result["online"])
+        sock.close.assert_called_once_with()
 
 
 if __name__ == "__main__":

@@ -1,7 +1,9 @@
+import ssl
 import unittest
 from unittest.mock import Mock, patch
 from urllib.error import URLError
 
+import core.web_service as web_service
 from core.web_service import geolocalizacion_ip, verificar_url
 
 
@@ -32,6 +34,13 @@ class WebServiceTests(unittest.TestCase):
 
         self.assertFalse(result["online"])
         sock.close.assert_called_once_with()
+
+    def test_https_context_verifies_certificate_chain(self):
+        web_service._SSL_CONTEXT = None
+        context = web_service._ssl_ctx()
+
+        self.assertFalse(context.check_hostname)
+        self.assertEqual(context.verify_mode, ssl.CERT_REQUIRED)
 
 
 if __name__ == "__main__":

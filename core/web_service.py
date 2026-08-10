@@ -67,8 +67,12 @@ def _ssl_ctx():
     global _SSL_CONTEXT
     if _SSL_CONTEXT is None:
         _SSL_CONTEXT = ssl.create_default_context()
+        # Las comprobaciones incluyen algunos servicios publicados por IP,
+        # por eso no se puede validar el nombre del certificado. La cadena de
+        # confianza sí debe validarse para no convertir el monitor en un
+        # cliente HTTPS vulnerable a MITM.
         _SSL_CONTEXT.check_hostname = False
-        _SSL_CONTEXT.verify_mode    = ssl.CERT_NONE
+        _SSL_CONTEXT.verify_mode    = ssl.CERT_REQUIRED
     return _SSL_CONTEXT
 
 

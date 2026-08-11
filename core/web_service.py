@@ -60,20 +60,26 @@ SERVICIOS_BUILTIN = {
 
 # ── Verificación HTTP ─────────────────────────────────────────────────────
 
-# Contexto SSL global para reutilización y ahorro de overhead
+# Contextos SSL globales para reutilización y ahorro de overhead. Las URLs
+# con un host DNS pueden validar también la identidad; las URLs con IP suelen
+# usar certificados cuyo nombre no coincide con la dirección literal.
 _SSL_CONTEXT = None
+_SSL_CONTEXT_HOSTNAME = None
 
-def _ssl_ctx():
-    global _SSL_CONTEXT
-    if _SSL_CONTEXT is None:
-        _SSL_CONTEXT = ssl.create_default_context()
-        # Las comprobaciones incluyen algunos servicios publicados por IP,
-        # por eso no se puede validar el nombre del certificado. La cadena de
-        # confianza sí debe validarse para no convertir el monitor en un
-        # cliente HTTPS vulnerable a MITM.
-        _SSL_CONTEXT.check_hostname = False
-        _SSL_CONTEXT.verify_mode    = ssl.CERT_REQUIRED
-    return _SSL_CONTEXT
+def _ssl_ctx(check_hostname: bool = False):
+    global _SSL_CONTEXT, _SSL_CONTEXT_HOSTNAME
+    context = _SSL_CONTEXT_HOSTNAME if check_hostname else _SSL_CONTEXT
+    if context is None:
+        context = ssl.create_default_context()
+        # La cadena de confianza siempre debe validarse para no convertir el
+        # monitor en un cliente HTTPS vulnerable a MITM.
+        context.verify_mode = ssl.CERT_REQUIRED
+        context.check_hostname = check_hostname
+        if check_hostname:
+            _SSL_CONTEXT_HOSTNAME = context
+        else:
+            _SSL_CONTEXT = context
+    return context
 
 
 def verificar_url(url: str, timeout: int = 5) -> dict:
@@ -106,7 +112,14 @@ def verificar_url(url: str, timeout: int = 5) -> dict:
             sock.close()
 
     # 2. Medir tiempo de respuesta Web (HTTP/SSL) usando HEAD
-    ctx = _ssl_ctx()
+    try:
+        # Valida el nombre para dominios; se omite solo para hosts que son IP
+        # literales, donde normalmente el certificado identifica un dominio.
+        ipaddress.ip_address(host)
+        ctx = _ssl_ctx(check_hostname=False)
+    except (ValueError, TypeError):
+        ctx = _ssl_ctx(check_hostname=True)
+
     try:
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",

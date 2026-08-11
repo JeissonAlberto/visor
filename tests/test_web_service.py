@@ -37,10 +37,30 @@ class WebServiceTests(unittest.TestCase):
 
     def test_https_context_verifies_certificate_chain(self):
         web_service._SSL_CONTEXT = None
+        web_service._SSL_CONTEXT_HOSTNAME = None
         context = web_service._ssl_ctx()
+        hostname_context = web_service._ssl_ctx(check_hostname=True)
 
         self.assertFalse(context.check_hostname)
+        self.assertTrue(hostname_context.check_hostname)
         self.assertEqual(context.verify_mode, ssl.CERT_REQUIRED)
+        self.assertEqual(hostname_context.verify_mode, ssl.CERT_REQUIRED)
+
+    def test_domain_url_uses_hostname_verification(self):
+        web_service._SSL_CONTEXT = None
+        web_service._SSL_CONTEXT_HOSTNAME = None
+        response = Mock(status=200)
+        response.__enter__ = Mock(return_value=response)
+        response.__exit__ = Mock(return_value=None)
+        with patch("core.web_service.socket.socket") as socket_factory, patch(
+            "core.web_service.urllib.request.urlopen", return_value=response
+        ) as urlopen:
+            result = verificar_url("https://example.test")
+
+        self.assertTrue(result["online"])
+        context = urlopen.call_args.kwargs["context"]
+        self.assertTrue(context.check_hostname)
+        socket_factory.return_value.connect.assert_called_once_with(("example.test", 443))
 
 
 if __name__ == "__main__":

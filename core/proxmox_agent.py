@@ -5,38 +5,75 @@ Usa la API REST de Proxmox (puerto 8006).
 """
 
 import json
+import os
 import socket
 import urllib.request
 import urllib.error
 import ssl
+import ipaddress
 from datetime import datetime
+
+
+def _proxmox_ssl_context(host: str) -> ssl.SSLContext:
+    """Crea un contexto TLS verificable para la API de Proxmox.
+
+    Proxmox suele usar certificados autofirmados. La operación segura por
+    defecto valida la CA del sistema (o ``VISOR_PROXMOX_CA_FILE``); la
+    excepción de TLS inseguro debe habilitarse explícitamente para instalaciones
+    antiguas que aún no puedan instalar su CA.
+    """
+    ca_file = os.getenv("VISOR_PROXMOX_CA_FILE")
+    insecure = os.getenv("VISOR_PROXMOX_INSECURE_TLS", "").lower() in {
+        "1", "true", "yes", "si"
+    }
+
+    if ca_file:
+        context = ssl.create_default_context(cafile=ca_file)
+    else:
+        context = ssl.create_default_context()
+
+    if insecure:
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
+    else:
+        # Para una IP literal no es posible comprobar el nombre del certificado
+        # de forma fiable; la cadena de confianza sigue siendo obligatoria.
+        try:
+            ipaddress.ip_address(host)
+        except (ValueError, TypeError):
+            context.check_hostname = True
+        else:
+            context.check_hostname = False
+        context.verify_mode = ssl.CERT_REQUIRED
+    return context
+
 
 def _proxmox_get(host: str, token_id: str, token_secret: str, endpoint: str) -> dict:
     """Realiza una petición GET a la API de Proxmox."""
     url = f"https://{host}:8006/api2/json{endpoint}"
-    ctx = ssl.create_default_context()
-    ctx.check_hostname = False
-    ctx.verify_mode = ssl.CERT_NONE  # Proxmox self-signed cert
-
-    req = urllib.request.Request(url)
-    req.add_header("Authorization", f"PVEAPIToken={token_id}={token_secret}")
 
     try:
+        ctx = _proxmox_ssl_context(host)
+        req = urllib.request.Request(url)
+        req.add_header("Authorization", f"PVEAPIToken={token_id}={token_secret}")
         with urllib.request.urlopen(req, context=ctx, timeout=5) as resp:
             return json.loads(resp.read().decode())
-    except Exception as e:
+    except (urllib.error.URLError, OSError, ValueError, UnicodeError) as e:
         return {"error": str(e)}
+
 
 def ping_proxmox(host: str) -> bool:
     """Verifica que el API de Proxmox esté accesible."""
+    sock = None
     try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(2)
-        res = s.connect_ex((host, 8006))
-        s.close()
-        return res == 0
-    except:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(2)
+        return sock.connect_ex((host, 8006)) == 0
+    except OSError:
         return False
+    finally:
+        if sock is not None:
+            sock.close()
 
 def get_nodes_status(host: str, token_id: str = "root@pam!visor", token_secret: str = "") -> list:
     """

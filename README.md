@@ -128,6 +128,21 @@ SERVICIOS_WEB = [
 RANGO_SCAN = "192.168.1.0/24"
 ```
 
+### API de Proxmox y TLS
+
+La conexión a Proxmox valida por defecto los certificados contra la CA del sistema.
+Para usar una CA interna o el certificado de la instalación, indica su ruta sin
+incluir secretos en el repositorio:
+
+```bash
+export VISOR_PROXMOX_CA_FILE="/ruta/a/proxmox-ca.pem"
+```
+
+Las instalaciones antiguas con certificado autofirmado pueden usar temporalmente
+`VISOR_PROXMOX_INSECURE_TLS=1`, pero esta opción desactiva la validación TLS y no
+se recomienda en producción. Para hosts configurados por IP se mantiene la
+validación de la cadena, aunque no se puede comprobar la coincidencia del nombre.
+
 ### Vigilancia pública continua
 
 El modo `visor --watch` comprueba la disponibilidad HTTP de los servicios incluidos en

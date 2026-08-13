@@ -21,13 +21,41 @@ from core.topology import REPORTS_DIR, build_topology, render_topology_drawio, r
 
 
 def parse_ping_output(output: str) -> dict:
-    """Extrae pérdida y latencia promedio de la salida EN/ES de ping."""
+    """Extrae pérdida y latencia promedio de la salida EN/ES de ping.
+
+    Admite los resúmenes de Windows/macOS en inglés y español, además del
+    formato Linux ``rtt min/avg/max/...``. No depende de un locale concreto.
+    """
     text = output or ""
-    loss_match = re.search(r"\((\d+)%(?:\s*(?:loss|lost|perdidos?|perdida))?\)", text, re.IGNORECASE)
-    avg_match = re.search(r"(?:Average|Media|Promedio)\s*[=<]\s*(\d+)\s*ms", text, re.IGNORECASE)
+    loss_match = re.search(
+        r"(?:\(\s*)?(\d+(?:\.\d+)?)%\s*"
+        r"(?:loss|lost|packet\s+loss|perdidos?|perdida)\s*\)?",
+        text,
+        re.IGNORECASE,
+    )
+    avg_match = re.search(
+        r"(?:Average|Media|Promedio)\s*[=<]\s*(\d+(?:\.\d+)?)\s*ms",
+        text,
+        re.IGNORECASE,
+    )
     if avg_match is None:
-        avg_match = re.search(r"(?:Average|Media|Promedio)[^\d<]*(?:<\s*)?(\d+)\s*ms", text, re.IGNORECASE)
-    loss_pct = int(loss_match.group(1)) if loss_match else None
+        avg_match = re.search(
+            r"(?:Average|Media|Promedio)[^\d<]*(?:<\s*)?(\d+(?:\.\d+)?)\s*ms",
+            text,
+            re.IGNORECASE,
+        )
+    if avg_match is None:
+        # Linux/macOS: rtt/round-trip min/avg/max[/mdev] = 1/2/3/4 ms
+        avg_match = re.search(
+            r"(?:rtt|round-trip)[^=]*=\s*"
+            r"\d+(?:\.\d+)?/(\d+(?:\.\d+)?)/",
+            text,
+            re.IGNORECASE,
+        )
+
+    loss_pct = float(loss_match.group(1)) if loss_match else None
+    if loss_pct is not None and loss_pct.is_integer():
+        loss_pct = int(loss_pct)
     avg_ms = float(avg_match.group(1)) if avg_match else None
     return {
         "perdida_pct": loss_pct,

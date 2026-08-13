@@ -13,6 +13,23 @@ class PathMonitorTests(unittest.TestCase):
         self.assertEqual(metric["promedio_ms"], 2.0)
         self.assertTrue(metric["alcanzable"])
 
+    def test_parses_linux_ping_summary(self):
+        output = (
+            "3 packets transmitted, 3 received, 0% packet loss, time 2002ms\n"
+            "rtt min/avg/max/mdev = 1.120/2.345/4.567/0.500 ms"
+        )
+        metric = parse_ping_output(output)
+        self.assertEqual(metric["perdida_pct"], 0)
+        self.assertEqual(metric["promedio_ms"], 2.345)
+        self.assertTrue(metric["alcanzable"])
+
+    def test_parses_fractional_loss_and_reachability(self):
+        output = "10 packets transmitted, 9 received, 10.0% packet loss\nrtt min/avg/max/mdev = 1/5/9/1 ms"
+        metric = parse_ping_output(output)
+        self.assertEqual(metric["perdida_pct"], 10)
+        self.assertEqual(metric["promedio_ms"], 5.0)
+        self.assertTrue(metric["alcanzable"])
+
     def test_monitor_adds_metrics_and_writes_live_drawio(self):
         topology = {
             "ts": "2026-08-06T16:00:00",

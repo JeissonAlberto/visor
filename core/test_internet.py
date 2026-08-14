@@ -236,11 +236,14 @@ def _medir_throughput_tcp() -> tuple[float | None, str]:
 # ── SSL helper ────────────────────────────────────────────────────────────
 
 def _ssl_ctx():
+    """Crea el contexto HTTPS seguro para las mediciones de velocidad.
+
+    Las fuentes de prueba son externas y no deben convertir el diagnóstico en
+    un cliente TLS vulnerable a MITM. Si una fuente tiene un certificado
+    inválido, la medición la descarta y continúa con el siguiente fallback.
+    """
     import ssl
-    ctx = ssl.create_default_context()
-    ctx.check_hostname = False
-    ctx.verify_mode    = ssl.CERT_NONE
-    return ctx
+    return ssl.create_default_context()
 
 
 # ── Test completo ─────────────────────────────────────────────────────────

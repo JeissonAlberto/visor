@@ -35,6 +35,30 @@ class WebServiceTests(unittest.TestCase):
         self.assertFalse(result["online"])
         sock.close.assert_called_once_with()
 
+    def test_malformed_url_returns_result_without_network_request(self):
+        with patch("core.web_service.socket.socket") as socket_factory, patch(
+            "core.web_service.urllib.request.urlopen"
+        ) as urlopen:
+            result = verificar_url("https://example.test:not-a-port")
+
+        self.assertFalse(result["online"])
+        self.assertEqual(result["estado"], "DOWN")
+        self.assertIsNone(result["latencia"])
+        self.assertIn("URL inválida", result["error"])
+        socket_factory.assert_not_called()
+        urlopen.assert_not_called()
+
+    def test_unsupported_scheme_returns_result_without_network_request(self):
+        with patch("core.web_service.socket.socket") as socket_factory, patch(
+            "core.web_service.urllib.request.urlopen"
+        ) as urlopen:
+            result = verificar_url("ftp://example.test/file")
+
+        self.assertFalse(result["online"])
+        self.assertIn("http(s)", result["error"])
+        socket_factory.assert_not_called()
+        urlopen.assert_not_called()
+
     def test_https_context_verifies_certificate_chain(self):
         web_service._SSL_CONTEXT = None
         web_service._SSL_CONTEXT_HOSTNAME = None

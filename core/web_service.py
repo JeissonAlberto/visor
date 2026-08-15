@@ -60,6 +60,20 @@ SERVICIOS_BUILTIN = {
 
 # ── Verificación HTTP ─────────────────────────────────────────────────────
 
+
+def _resultado_url_invalida(url: object, motivo: str) -> dict:
+    """Devuelve un resultado estable para no abortar un escaneo por configuración inválida."""
+    return {
+        "url": str(url or ""),
+        "online": False,
+        "estado": "DOWN",
+        "http": None,
+        "latencia": None,
+        "lat_red": None,
+        "error": motivo,
+    }
+
+
 # Contextos SSL globales para reutilización y ahorro de overhead. Las URLs
 # con un host DNS pueden validar también la identidad; las URLs con IP suelen
 # usar certificados cuyo nombre no coincide con la dirección literal.
@@ -88,10 +102,15 @@ def verificar_url(url: str, timeout: int = 5) -> dict:
     tiempo de respuesta web (TTFB). Usa el método HEAD para mayor velocidad.
     """
     from urllib.parse import urlparse
-    parsed = urlparse(url)
-    host   = parsed.hostname
-    port   = parsed.port or (443 if parsed.scheme == "https" else 80)
-    
+    try:
+        parsed = urlparse(url)
+        host = parsed.hostname
+        port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    except (TypeError, ValueError):
+        return _resultado_url_invalida(url, "URL inválida")
+    if parsed.scheme not in {"http", "https"} or not host:
+        return _resultado_url_invalida(url, "URL inválida: se requiere http(s) y un host")
+
     t_red = None
     t0    = time.monotonic()
     

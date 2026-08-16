@@ -183,52 +183,66 @@ def _medir_throughput_tcp() -> tuple[float | None, str]:
     """
     Mide throughput TCP local (loopback) en Mbps.
     Indica la capacidad del stack de red del sistema.
+
+    El servidor usa un puerto efímero para evitar colisiones con otros
+    procesos y para no enviar datos accidentalmente a un servicio que ya
+    estuviera escuchando en un puerto fijo.
     """
-    PUERTO = 54321
-    DATOS   = 10 * 1024 * 1024   # 10 MB
-    resultado = {"mbps": None, "error": None}
+    DATOS = 10 * 1024 * 1024   # 10 MB
+    estado = {"puerto": None, "error": None}
+    servidor_listo = threading.Event()
 
     def servidor():
         try:
-            srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            srv.bind(("127.0.0.1", PUERTO))
-            srv.listen(1)
-            srv.settimeout(5)
-            conn, _ = srv.accept()
-            recibido = 0
-            while recibido < DATOS:
-                bloque = conn.recv(65536)
-                if not bloque:
-                    break
-                recibido += len(bloque)
-            conn.close()
-            srv.close()
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as srv:
+                srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                srv.bind(("127.0.0.1", 0))
+                srv.listen(1)
+                srv.settimeout(5)
+                estado["puerto"] = srv.getsockname()[1]
+                servidor_listo.set()
+                conn, _ = srv.accept()
+                with conn:
+                    recibido = 0
+                    while recibido < DATOS:
+                        bloque = conn.recv(65536)
+                        if not bloque:
+                            break
+                        recibido += len(bloque)
         except Exception as e:
-            resultado["error"] = str(e)
+            estado["error"] = str(e)
+            servidor_listo.set()
 
     hilo = threading.Thread(target=servidor, daemon=True)
     hilo.start()
-    time.sleep(0.1)
+    if not servidor_listo.wait(timeout=5):
+        return None, "El servidor loopback no estuvo disponible"
+    if estado["error"] or estado["puerto"] is None:
+        return None, estado["error"] or "No se pudo abrir el servidor loopback"
 
     try:
-        cli = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        cli.connect(("127.0.0.1", PUERTO))
-        chunk = b"X" * 65536
-        enviado = 0
-        t0 = time.perf_counter()
-        while enviado < DATOS:
-            n = cli.send(chunk)
-            enviado += n
-        elapsed = time.perf_counter() - t0
-        cli.close()
-        hilo.join(timeout=3)
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as cli:
+            cli.settimeout(5)
+            cli.connect(("127.0.0.1", estado["puerto"]))
+            chunk = b"X" * 65536
+            enviado = 0
+            t0 = time.perf_counter()
+            while enviado < DATOS:
+                n = cli.send(chunk[:min(len(chunk), DATOS - enviado)])
+                if n <= 0:
+                    return None, "El socket loopback no aceptó datos"
+                enviado += n
+            elapsed = time.perf_counter() - t0
 
+        hilo.join(timeout=5)
         if elapsed > 0:
             mbps = round((DATOS * 8) / elapsed / 1_000_000, 1)
             return mbps, "loopback"
     except Exception as e:
         return None, str(e)
+    finally:
+        if hilo.is_alive():
+            hilo.join(timeout=1)
 
     return None, "Error desconocido"
 

@@ -29,6 +29,24 @@ class TelemetryTests(unittest.TestCase):
         self.assertEqual(json.loads(request.data), {"x": 1})
         self.assertEqual(request.headers["Authorization"], "Bearer test-token")
 
+    def test_http_endpoint_requires_exact_local_hostname(self):
+        opener = Mock()
+        with patch("core.telemetry.urllib.request.build_opener", return_value=opener):
+            result = TelemetryClient(
+                url="http://localhost.evil.example/events", enabled=True
+            ).send_event({"x": 1})
+
+        self.assertTrue(result["skipped"])
+        opener.open.assert_not_called()
+
+    def test_endpoint_with_embedded_credentials_is_rejected(self):
+        result = TelemetryClient(
+            url="https://user:password@example.test/events", enabled=True
+        ).send_event({"x": 1})
+
+        self.assertTrue(result["skipped"])
+        self.assertIn("no permitido", result["reason"])
+
 
 if __name__ == "__main__":
     unittest.main()

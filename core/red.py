@@ -12,6 +12,11 @@ from datetime import datetime
 from core.colores import dim
 
 
+# Prevent accidental scans from creating millions of subprocesses/futures.
+MAX_SCAN_HOSTS = 4096
+MAX_SCAN_WORKERS = 100
+
+
 # ── Ping ──────────────────────────────────────────────────────────────────
 
 def hacer_ping(host: str, count: int = 1, timeout: int = 2) -> tuple[bool, float | None]:
@@ -143,7 +148,21 @@ def escanear_rango(rango: str, max_workers: int = 50) -> list[dict]:
     except ValueError:
         return []
 
+    # Check the size before materializing hosts or creating futures. For IPv4
+    # networks up to /30, network and broadcast addresses are not scannable;
+    # /31, /32 and IPv6 use all addresses returned by ``hosts()``.
+    host_count = red.num_addresses
+    if red.version == 4 and red.prefixlen < 31:
+        host_count -= 2
+    if host_count > MAX_SCAN_HOSTS:
+        raise ValueError(
+            f"rango demasiado grande: {host_count} hosts (máximo {MAX_SCAN_HOSTS})"
+        )
     hosts = [str(ip) for ip in red.hosts()]
+    try:
+        workers = max(1, min(int(max_workers), MAX_SCAN_WORKERS))
+    except (TypeError, ValueError):
+        workers = 50
     resultados = []
 
     def probar_host(ip):
@@ -162,11 +181,19 @@ def escanear_rango(rango: str, max_workers: int = 50) -> list[dict]:
             "estado":   "UP" if activo else "DOWN",
         }
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as ex:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as ex:
         resultados = list(ex.map(probar_host, hosts))
 
-    # Ordenar: primero los activos
-    resultados.sort(key=lambda x: (not x["activo"], x["ip"]))
+    # Ordenar primero los activos y después por dirección, soportando IPv4 e
+    # IPv6 sin intentar separar una dirección IPv6 por puntos.
+    def clave_ip(resultado):
+        try:
+            direccion = ipaddress.ip_address(resultado["ip"])
+            return (not resultado["activo"], direccion.version, int(direccion))
+        except (ValueError, TypeError):
+            return (not resultado["activo"], 99, 0)
+
+    resultados.sort(key=clave_ip)
     return resultados
 
 

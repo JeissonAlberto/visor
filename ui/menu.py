@@ -270,7 +270,12 @@ def _menu_rango():
     print(f"\n  {info('Escaneando ' + rango + ' (' + str(total_ips) + ' IPs)...')}")
     print(f"  {dim('Puede tardar 30-60 segundos...')}\n")
 
-    resultados = escanear_rango(rango)
+    try:
+        resultados = escanear_rango(rango)
+    except ValueError as exc:
+        print(f"\n  {fallo('No se puede escanear el rango: ' + str(exc))}")
+        input(f"\n  {dim('Enter para continuar...')}")
+        return
     activos    = [r for r in resultados if r.get("activo")]
 
     if activos:

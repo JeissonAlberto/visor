@@ -153,7 +153,8 @@ def _escaneo_rapido():
 
 def _investigar_host():
     """Investigación profunda de un host específico."""
-    from core.lan_vision import _scan_ports_fast, _grab_banner, lookup_oui
+    from core.lan_vision import _scan_ports_fast, lookup_oui
+    from core.raptor_eye import _grab_banner
     from core.red import hacer_ping
 
     separador("🔍 INVESTIGAR HOST")

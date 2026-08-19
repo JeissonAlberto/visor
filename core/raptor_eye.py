@@ -89,20 +89,19 @@ RIESGO_ORDEN = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
 
 
 def _grab_banner(ip: str, port: int, timeout: float = 1.0) -> str:
-    """Intenta obtener el banner de un servicio."""
+    """Intenta obtener el banner de un servicio sin dejar sockets abiertos."""
     try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(timeout)
-        s.connect((ip, port))
-        # Enviar petición básica para forzar banner
-        if port in (80, 8080, 8006):
-            s.send(b"GET / HTTP/1.0\r\nHost: " + ip.encode() + b"\r\n\r\n")
-        elif port == 21:
-            pass  # FTP envía banner solo
-        banner = s.recv(256).decode(errors="ignore").strip()
-        s.close()
-        return banner[:80] if banner else ""
-    except:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(timeout)
+            s.connect((ip, port))
+            # Enviar petición básica para forzar banner
+            if port in (80, 8080, 8006):
+                s.send(b"GET / HTTP/1.0\r\nHost: " + ip.encode() + b"\r\n\r\n")
+            elif port == 21:
+                pass  # FTP envía banner solo
+            banner = s.recv(256).decode(errors="ignore").strip()
+            return banner[:80] if banner else ""
+    except (OSError, UnicodeError):
         return ""
 
 

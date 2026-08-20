@@ -15,6 +15,9 @@ import concurrent.futures
 import ipaddress
 from datetime import datetime
 
+# Prevent accidental LAN scans from materializing huge CIDR ranges.
+MAX_LAN_HOSTS = 4096
+
 # ── OUI Database (Top vendors relevantes para ISP) ───────────────────────
 OUI_DB = {
     "00:00:5E": "IANA",
@@ -143,19 +146,23 @@ def _ping_host(ip: str) -> bool:
 
 
 def _scan_ports_fast(ip: str, ports: list = None) -> list:
-    """Escanea puertos comunes en un host."""
+    """Escanea puertos comunes en un host y cierra cada socket siempre."""
     if ports is None:
         ports = [22, 23, 80, 443, 445, 3389, 8080, 8291, 8728, 8729]
+    if not ports:
+        return []
+
     abiertos = []
+
     def check(p):
         try:
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.settimeout(0.5)
-            if s.connect_ex((ip, p)) == 0:
-                abiertos.append(p)
-            s.close()
-        except:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.settimeout(0.5)
+                if s.connect_ex((ip, p)) == 0:
+                    abiertos.append(p)
+        except OSError:
             pass
+
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(ports)) as ex:
         ex.map(check, ports)
     return sorted(abiertos)
@@ -205,29 +212,42 @@ def discover_lan(rango: str = None, scan_ports: bool = True, callback=None) -> l
     
     Returns:
         Lista de dicts con info completa de cada dispositivo.
+
+    Raises:
+        ValueError: si el CIDR contiene más de ``MAX_LAN_HOSTS`` hosts.
     """
     # ── 1. Detectar rango si no se especificó ─────────────────────────────
     if not rango:
         try:
-            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            s.connect(("8.8.8.8", 80))
-            ip_local = s.getsockname()[0]
-            s.close()
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                s.connect(("8.8.8.8", 80))
+                ip_local = s.getsockname()[0]
             partes = ip_local.split(".")
             rango = ".".join(partes[:3]) + ".0/24"
-        except:
+        except (OSError, IndexError, ValueError):
             rango = "192.168.1.0/24"
 
     # ── 2. Poblar ARP via ping-sweep concurrente ──────────────────────────
     try:
         red = ipaddress.ip_network(rango, strict=False)
-    except ValueError:
+    except (TypeError, ValueError):
         return []
+
+    host_count = red.num_addresses
+    if red.version == 4 and red.prefixlen < 31:
+        host_count -= 2
+    if host_count > MAX_LAN_HOSTS:
+        raise ValueError(
+            f"rango LAN demasiado grande: {host_count} hosts "
+            f"(máximo {MAX_LAN_HOSTS})"
+        )
 
     hosts_a_probar = [str(ip) for ip in red.hosts()]
 
     activos_ips = []
-    with concurrent.futures.ThreadPoolExecutor(max_workers=150) as ex:
+    with concurrent.futures.ThreadPoolExecutor(
+        max_workers=max(1, min(150, len(hosts_a_probar)))
+    ) as ex:
         futures = {ex.submit(_ping_host, ip): ip for ip in hosts_a_probar}
         for fut in concurrent.futures.as_completed(futures):
             ip = futures[fut]

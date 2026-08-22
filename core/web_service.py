@@ -202,16 +202,28 @@ def verificar_url(url: str, timeout: int = 5) -> dict:
 
 
 def escanear_servicios_web(servicios: list | None = None) -> list:
-    """Verifica lista de servicios. Si no se pasa, usa config/device.py."""
+    """Verifica una lista de servicios sin abortar por configuración dañada.
+
+    Las entradas que no sean mapas se ignoran y una URL no textual se reporta
+    como inválida. Así, un solo registro mal formado no interrumpe el informe
+    completo ni provoca una excepción al llamar a ``.strip()``.
+    """
     if servicios is None:
         servicios = SERVICIOS_WEB
     resultados = []
     for svc in servicios:
-        url    = svc.get("url", "").strip()
-        nombre = svc.get("nombre", url)
-        if not url:
+        if not isinstance(svc, dict):
             continue
-        r = verificar_url(url)
+
+        raw_url = svc.get("url", "")
+        nombre = svc.get("nombre", str(raw_url or ""))
+        if raw_url is None or (isinstance(raw_url, str) and not raw_url.strip()):
+            continue
+        if not isinstance(raw_url, str):
+            r = _resultado_url_invalida(raw_url, "URL inválida")
+        else:
+            url = raw_url.strip()
+            r = verificar_url(url)
         r["nombre"] = nombre
         r["ts"] = __import__("datetime").datetime.now().isoformat(timespec="seconds")
         resultados.append(r)
@@ -234,9 +246,11 @@ def escanear_por_categorias() -> dict:
     tareas = []
     for cat, servicios in SERVICIOS_BUILTIN.items():
         for svc in servicios:
-            url = svc.get("url", "").strip()
-            if url:
-                tareas.append((cat, svc))
+            if not isinstance(svc, dict):
+                continue
+            raw_url = svc.get("url", "")
+            if isinstance(raw_url, str) and raw_url.strip():
+                tareas.append((cat, {**svc, "url": raw_url.strip()}))
 
     # Ejecutar en paralelo (máximo 15 hilos para no saturar)
     def _tarea_verificar(item):

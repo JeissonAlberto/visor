@@ -4,7 +4,12 @@ from unittest.mock import Mock, patch
 from urllib.error import URLError
 
 import core.web_service as web_service
-from core.web_service import geolocalizacion_ip, verificar_url
+from core.web_service import (
+    escanear_por_categorias,
+    escanear_servicios_web,
+    geolocalizacion_ip,
+    verificar_url,
+)
 
 
 class WebServiceTests(unittest.TestCase):
@@ -85,6 +90,36 @@ class WebServiceTests(unittest.TestCase):
         context = urlopen.call_args.kwargs["context"]
         self.assertTrue(context.check_hostname)
         socket_factory.return_value.connect.assert_called_once_with(("example.test", 443))
+
+    def test_service_scan_ignores_malformed_entries_without_aborting(self):
+        with patch("core.web_service.verificar_url", return_value={
+            "url": "https://example.test", "online": True
+        }) as verify:
+            results = escanear_servicios_web([
+                None,
+                {"nombre": "Sin URL", "url": None},
+                {"nombre": "Puerto inválido", "url": 443},
+                {"nombre": "Vacío", "url": "  "},
+                {"nombre": "Servicio válido", "url": " https://example.test "},
+            ])
+
+        self.assertEqual(len(results), 2)
+        self.assertEqual(results[0]["error"], "URL inválida")
+        self.assertEqual(results[0]["nombre"], "Puerto inválido")
+        verify.assert_called_once_with("https://example.test")
+
+    def test_category_scan_skips_malformed_configured_services(self):
+        response = {"url": "https://example.test", "online": True}
+        with patch.object(
+            web_service,
+            "SERVICIOS_WEB",
+            [None, {"url": None}, {"url": " https://example.test "}],
+        ), patch("core.web_service.verificar_url", return_value=response) as verify:
+            categories = escanear_por_categorias()
+
+        self.assertEqual(len(categories["Mis Servicios"]), 1)
+        self.assertEqual(categories["Mis Servicios"][0]["url"], "https://example.test")
+        verify.assert_any_call("https://example.test")
 
 
 if __name__ == "__main__":

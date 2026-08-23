@@ -27,13 +27,13 @@ def detectar_red_local() -> tuple[str, str, str]:
     sistema   = platform.system().lower()
 
     try:
-        # IP local — conectar a DNS externo sin enviar datos
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.settimeout(2)
-        s.connect(("8.8.8.8", 80))
-        ip_local = s.getsockname()[0]
-        s.close()
-    except Exception:
+        # IP local — conectar a DNS externo sin enviar datos. El context
+        # manager también cierra el socket si connect() falla.
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.settimeout(2)
+            s.connect(("8.8.8.8", 80))
+            ip_local = s.getsockname()[0]
+    except (OSError, IndexError, TypeError):
         ip_local = "127.0.0.1"
 
     try:
@@ -116,8 +116,11 @@ def _descubrir_dispositivos_red() -> list[dict]:
 # ── Resolución de dirección ───────────────────────────────────────────────
 
 def _resolver_direccion(dispositivo: dict) -> tuple:
-    mac = dispositivo.get("mac", "").strip()
-    ip  = dispositivo.get("ip", "").strip()
+    """Resuelve una entrada de dispositivo sin asumir tipos perfectos."""
+    mac_val = dispositivo.get("mac", "")
+    ip_val = dispositivo.get("ip", "")
+    mac = mac_val.strip() if isinstance(mac_val, str) else ""
+    ip = ip_val.strip() if isinstance(ip_val, str) else ""
 
     if mac:
         ip_arp = buscar_ip_por_mac(mac)
@@ -144,7 +147,14 @@ def escanear_dispositivos(dispositivos: list | None = None, auto_descubrir: bool
     Si auto_descubrir es True, además agrega dispositivos activos detectados en la red.
     """
     if not dispositivos:
-        dispositivos = list(DISPOSITIVOS) # Copiar para no mutar global
+        dispositivos = list(DISPOSITIVOS)
+    else:
+        # Copiar siempre: el descubrimiento automático agrega entradas y no
+        # debe mutar una lista recibida por el llamador.
+        dispositivos = list(dispositivos)
+    # Una entrada mal formada en el archivo de configuración no debe detener
+    # el monitoreo completo.
+    dispositivos = [d for d in dispositivos if isinstance(d, dict)]
 
     # 1. Detectar red actual para ver si los dispositivos configurados son coherentes
     ip_local, gateway_real, rango_actual = detectar_red_local()
@@ -206,7 +216,12 @@ def monitoreo_continuo(intervalo: int = 60, callback=None):
     ciclo = 0
 
     # Detectar red una sola vez al inicio si no hay config
-    tiene_config_real = any(d.get("ip","").strip() or d.get("mac","").strip() for d in DISPOSITIVOS)
+    tiene_config_real = any(
+        isinstance(d, dict)
+        and any(isinstance(d.get(campo), str) and d.get(campo).strip()
+                for campo in ("ip", "mac"))
+        for d in DISPOSITIVOS
+    )
     if not tiene_config_real:
         print(f"\n  {info('Detectando red local automáticamente...')}")
         ip_local, gateway, rango = detectar_red_local()

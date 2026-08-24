@@ -4,6 +4,7 @@ Si no hay dispositivos configurados, detecta automáticamente la red local.
 """
 
 import ipaddress
+import re
 import socket
 import concurrent.futures
 from datetime import datetime
@@ -15,15 +16,46 @@ from config.settings import PING_COUNT, PING_TIMEOUT
 
 # ── Detección automática de red ───────────────────────────────────────────
 
+def _rango_desde_rutas(ip_local: str | None, salida: str) -> str | None:
+    """Obtiene la ruta conectada que contiene ``ip_local``."""
+    try:
+        direccion = ipaddress.ip_address(ip_local)
+    except (ValueError, TypeError):
+        return None
+
+    redes = []
+    for cidr in re.findall(r"(?<![\w.])(?:\d{1,3}\.){3}\d{1,3}/\d{1,2}", salida or ""):
+        try:
+            red = ipaddress.ip_network(cidr, strict=False)
+        except ValueError:
+            continue
+        if red.version == direccion.version and direccion in red:
+            redes.append(red)
+    if not redes:
+        return None
+    return str(max(redes, key=lambda red: red.prefixlen))
+
+
+def _rango_desde_mascara(ip_local: str | None, mascara: str | None) -> str | None:
+    """Construye una red desde la máscara de interfaz de Windows."""
+    if not ip_local or not mascara:
+        return None
+    try:
+        return str(ipaddress.ip_network(f"{ip_local}/{mascara}", strict=False))
+    except ValueError:
+        return None
+
+
 def detectar_red_local() -> tuple[str, str, str]:
     """
     Detecta la IP local, el gateway y el rango CIDR.
     Devuelve (ip_local, gateway, rango_cidr) ej: ("192.168.1.5", "192.168.1.1", "192.168.1.0/24")
     """
-    import subprocess, platform, re
+    import subprocess, platform
 
     ip_local  = None
     gateway   = None
+    rango_detectado = None
     sistema   = platform.system().lower()
 
     try:
@@ -41,15 +73,22 @@ def detectar_red_local() -> tuple[str, str, str]:
             r = subprocess.run(["ipconfig"], capture_output=True, text=True, timeout=5)
             m = re.search(r"(?:Puerta de enlace|Default Gateway)[^\d]+([\d.]+)", r.stdout, re.IGNORECASE)
             gateway = m.group(1) if m else None
+            mascara = re.search(r"(?:Máscara de subred|Subnet Mask)[^\d]+([\d.]+)", r.stdout, re.IGNORECASE)
+            rango_detectado = _rango_desde_mascara(
+                ip_local, mascara.group(1) if mascara else None
+            )
         else:
             r = subprocess.run(["ip", "route"], capture_output=True, text=True, timeout=5)
             m = re.search(r"default via ([\d.]+)", r.stdout)
             gateway = m.group(1) if m else None
+            rango_detectado = _rango_desde_rutas(ip_local, r.stdout)
     except Exception:
         gateway = None
 
-    # Derivar rango /24 desde la IP local
-    if ip_local and ip_local != "127.0.0.1":
+    # Si el sistema no expone la máscara, conserva un fallback seguro.
+    if rango_detectado:
+        rango = rango_detectado
+    elif ip_local and ip_local != "127.0.0.1":
         partes = ip_local.split(".")
         rango  = ".".join(partes[:3]) + ".0/24"
     else:

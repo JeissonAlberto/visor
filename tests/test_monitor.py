@@ -1,10 +1,32 @@
 import unittest
 from unittest.mock import patch
 
-from core.monitor import _resolver_direccion, escanear_dispositivos
+from core.monitor import (
+    _rango_desde_mascara,
+    _rango_desde_rutas,
+    _resolver_direccion,
+    escanear_dispositivos,
+)
 
 
 class MonitorTests(unittest.TestCase):
+    def test_detects_most_specific_connected_route(self):
+        routes = """
+        default via 192.168.10.1 dev eth0
+        192.168.0.0/16 dev eth0 scope link src 192.168.10.42
+        192.168.10.0/23 dev eth0 proto kernel scope link src 192.168.10.42
+        """
+        self.assertEqual(
+            _rango_desde_rutas("192.168.10.42", routes), "192.168.10.0/23"
+        )
+
+    def test_builds_network_from_windows_subnet_mask(self):
+        self.assertEqual(
+            _rango_desde_mascara("10.20.3.44", "255.255.255.192"),
+            "10.20.3.0/26",
+        )
+        self.assertIsNone(_rango_desde_mascara("not-an-ip", "255.255.255.0"))
+
     def test_resolver_ignores_non_text_addresses(self):
         with patch("core.monitor.buscar_ip_por_mac") as by_mac, patch(
             "core.monitor.resolver_host"

@@ -12,8 +12,13 @@ Mejoras v5.0:
 
 import socket
 import concurrent.futures
+import ipaddress
+import itertools
 import re
 from core.red import hacer_ping
+
+# Evita crear listas o tareas de red ilimitadas desde una entrada de menú/API.
+MAX_THREAT_HOSTS = 4096
 
 # ── Vectores de amenaza ampliados ──────────────────────────────────────────
 THREAT_VECTORS = {
@@ -142,12 +147,51 @@ def hunt_vulnerabilities(target: str, grab_banners: bool = True) -> list:
     return findings
 
 
+def _threat_scan_hosts(network_prefix: str, max_hosts: int) -> list[str]:
+    """Valida y materializa una cantidad acotada de hosts IPv4."""
+    if isinstance(max_hosts, bool):
+        raise ValueError("max_hosts debe ser un entero")
+    try:
+        limite = int(max_hosts)
+    except (TypeError, ValueError):
+        raise ValueError("max_hosts debe ser un entero") from None
+    if limite < 0:
+        raise ValueError("max_hosts no puede ser negativo")
+    if limite > MAX_THREAT_HOSTS:
+        raise ValueError(
+            f"escaneo de amenazas demasiado grande: {limite} hosts "
+            f"(máximo {MAX_THREAT_HOSTS})"
+        )
+    if limite == 0:
+        return []
+
+    texto = str(network_prefix or "").strip()
+    try:
+        if "/" in texto:
+            red = ipaddress.ip_network(texto, strict=False)
+            if red.version != 4:
+                raise ValueError("el escaneo de amenazas solo admite IPv4")
+            return [str(ip) for ip in itertools.islice(red.hosts(), limite)]
+
+        partes = texto.split(".")
+        if len(partes) != 3:
+            raise ValueError("usa un prefijo IPv4 como 192.168.1")
+        if any(not parte.isdigit() or not 0 <= int(parte) <= 255 for parte in partes):
+            raise ValueError("prefijo IPv4 inválido")
+        return [f"{texto}.{indice}" for indice in range(1, min(limite, 254) + 1)]
+    except (TypeError, ValueError):
+        raise ValueError("prefijo de red IPv4 inválido") from None
+
+
 def scan_network_threats(network_prefix: str, max_hosts: int = 50, callback=None) -> list:
     """
     Escanea un segmento de red buscando los hosts más vulnerables.
+
+    ``network_prefix`` acepta un prefijo de tres octetos (``192.168.1``)
+    o una red CIDR IPv4. La cantidad de objetivos siempre está limitada.
     """
     report = []
-    ips_a_probar = [f"{network_prefix}.{i}" for i in range(1, max_hosts + 1)]
+    ips_a_probar = _threat_scan_hosts(network_prefix, max_hosts)
 
     def escanear_host(ip):
         up, _ = hacer_ping(ip)

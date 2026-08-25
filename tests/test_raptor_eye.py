@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch
 
-from core.raptor_eye import _grab_banner
+from core.raptor_eye import MAX_THREAT_HOSTS, _grab_banner, _threat_scan_hosts
 
 
 class _FailingSocket:
@@ -29,6 +29,26 @@ class _FailingSocket:
 
 
 class RaptorEyeTests(unittest.TestCase):
+    def test_threat_scan_accepts_prefix_and_cidr(self):
+        self.assertEqual(
+            _threat_scan_hosts("192.168.50", 2),
+            ["192.168.50.1", "192.168.50.2"],
+        )
+        self.assertEqual(
+            _threat_scan_hosts("192.168.50.0/30", 10),
+            ["192.168.50.1", "192.168.50.2"],
+        )
+
+    def test_threat_scan_rejects_invalid_or_oversized_input(self):
+        with self.assertRaises(ValueError):
+            _threat_scan_hosts("192.168.50", -1)
+        with self.assertRaises(ValueError):
+            _threat_scan_hosts("192.168.50", MAX_THREAT_HOSTS + 1)
+        with self.assertRaises(ValueError):
+            _threat_scan_hosts("not-an-ip", 1)
+        with self.assertRaises(ValueError):
+            _threat_scan_hosts("2001:db8::/64", 1)
+
     def test_banner_probe_closes_socket_when_receive_fails(self):
         sock = _FailingSocket()
         with patch("core.raptor_eye.socket.socket", return_value=sock):

@@ -584,10 +584,16 @@ def _menu_salud_red():
     
     try:
         cant = int(input(f"  {info('Número de paquetes (default 10):')} ") or 10)
-    except: cant = 10
+    except ValueError: cant = 10
     
     print(f"\n  {naranja('Midiendo estabilidad de la conexión...')}")
-    res = analizar_calidad(target, cant)
+    try:
+        res = analizar_calidad(target, cant)
+    except ValueError as exc:
+        print(f"  {fallo(f'Parámetros inválidos: {exc}')}")
+        separador()
+        input(f"  {dim('Enter para continuar...')}")
+        return
     
     if res['estado'] == 'ONLINE':
         separador(f"RESULTADOS: {target}")

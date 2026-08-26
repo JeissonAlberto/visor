@@ -79,6 +79,9 @@ visor --report       # Ver último reporte
 visor --version      # Ver versión
 ```
 
+El diagnóstico interactivo de calidad acepta entre **1 y 120 paquetes** por medición;
+se rechazan cantidades inválidas antes de iniciar tráfico de red.
+
 ---
 
 ## 📁 Estructura

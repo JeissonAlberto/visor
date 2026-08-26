@@ -37,13 +37,40 @@ UMBRALES = {
     "loss_critica":   5.0,   # % pérdida crítica
 }
 
+# Un valor sin límite puede mantener el CLI ocupado indefinidamente y generar
+# tráfico innecesario si llega desde una configuración o integración externa.
+MAX_QUALITY_PROBES = 120
+
+
+def _validar_rafagas(rafagas: int) -> int:
+    """Valida el número de sondas antes de iniciar tráfico de red."""
+    if isinstance(rafagas, bool):
+        raise ValueError(
+            f"rafagas debe ser un entero entre 1 y {MAX_QUALITY_PROBES}"
+        )
+    try:
+        cantidad = int(rafagas)
+    except (TypeError, ValueError):
+        raise ValueError(
+            f"rafagas debe ser un entero entre 1 y {MAX_QUALITY_PROBES}"
+        ) from None
+    if not 1 <= cantidad <= MAX_QUALITY_PROBES:
+        raise ValueError(
+            f"rafagas debe estar entre 1 y {MAX_QUALITY_PROBES}"
+        )
+    return cantidad
+
 
 # ── Análisis básico (mejorado) ────────────────────────────────────────────
 
 def analizar_calidad(target: str, rafagas: int = 20) -> dict:
     """
     Análisis avanzado de calidad: latencia, jitter, pérdida y MOS Score.
+
+    Raises:
+        ValueError: si ``rafagas`` no está entre 1 y ``MAX_QUALITY_PROBES``.
     """
+    rafagas = _validar_rafagas(rafagas)
     latencias = []
     perdidos = 0
 

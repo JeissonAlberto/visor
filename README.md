@@ -80,7 +80,8 @@ visor --version      # Ver versión
 ```
 
 El diagnóstico interactivo de calidad acepta entre **1 y 120 paquetes** por medición;
-se rechazan cantidades inválidas antes de iniciar tráfico de red.
+se rechazan cantidades inválidas antes de iniciar tráfico de red. Las trazas de ruta
+aceptan como máximo **64 saltos** para evitar cargas desproporcionadas.
 
 ---
 

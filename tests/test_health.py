@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch
 
-from core.health import MAX_QUALITY_PROBES, analizar_calidad
+from core.health import MAX_QUALITY_PROBES, MAX_TRACE_HOPS, analizar_calidad, traceroute
 
 
 class HealthTests(unittest.TestCase):
@@ -20,6 +20,23 @@ class HealthTests(unittest.TestCase):
 
         self.assertEqual(result["estado"], "OFFLINE")
         self.assertEqual(result["loss"], 100)
+
+    def test_traceroute_rejects_oversized_hop_limit_before_running_command(self):
+        with patch("core.health.subprocess.run") as run:
+            with self.assertRaises(ValueError):
+                traceroute("192.0.2.1", MAX_TRACE_HOPS + 1)
+        run.assert_not_called()
+
+    def test_traceroute_passes_valid_hop_limit_to_system_command(self):
+        completed = type("Completed", (), {"stdout": "", "returncode": 0})()
+        with patch("core.health.platform.system", return_value="Linux"), patch(
+            "core.health.subprocess.run", return_value=completed
+        ) as run:
+            self.assertEqual(traceroute("192.0.2.1", 7), [])
+
+        self.assertEqual(run.call_args.args[0], [
+            "traceroute", "-n", "-m", "7", "-w", "2", "192.0.2.1"
+        ])
 
 
 if __name__ == "__main__":

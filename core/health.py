@@ -157,10 +157,32 @@ def analizar_calidad(target: str, rafagas: int = 20) -> dict:
 
 # ── Traceroute ────────────────────────────────────────────────────────────
 
+# Evita que una integración o configuración defectuosa solicite una traza
+# desproporcionada antes de que el timeout del proceso la detenga.
+MAX_TRACE_HOPS = 64
+
+
+def _validar_max_hops(max_hops: int) -> int:
+    """Valida el límite de saltos antes de invocar la herramienta del sistema."""
+    if isinstance(max_hops, bool):
+        raise ValueError(f"max_hops debe estar entre 1 y {MAX_TRACE_HOPS}")
+    try:
+        cantidad = int(max_hops)
+    except (TypeError, ValueError):
+        raise ValueError(f"max_hops debe estar entre 1 y {MAX_TRACE_HOPS}") from None
+    if not 1 <= cantidad <= MAX_TRACE_HOPS:
+        raise ValueError(f"max_hops debe estar entre 1 y {MAX_TRACE_HOPS}")
+    return cantidad
+
+
 def traceroute(target: str, max_hops: int = 20) -> list:
     """
     Ejecuta un traceroute y retorna saltos con IP, hostname y latencia.
+
+    Raises:
+        ValueError: si ``max_hops`` no está entre 1 y ``MAX_TRACE_HOPS``.
     """
+    max_hops = _validar_max_hops(max_hops)
     sistema = platform.system().lower()
     saltos = []
 

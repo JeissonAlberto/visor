@@ -141,7 +141,7 @@ def _ping_host(ip: str) -> bool:
     try:
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=2)
         return "TTL=" in r.stdout.upper() or "bytes from" in r.stdout.lower()
-    except:
+    except (OSError, subprocess.SubprocessError):
         return False
 
 
@@ -172,7 +172,7 @@ def _resolve_hostname(ip: str) -> str:
     """Resolución DNS inversa rápida."""
     try:
         return socket.gethostbyaddr(ip)[0]
-    except:
+    except OSError:
         return ""
 
 

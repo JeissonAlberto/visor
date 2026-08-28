@@ -82,7 +82,7 @@ def detectar_red_local() -> tuple[str, str, str]:
             m = re.search(r"default via ([\d.]+)", r.stdout)
             gateway = m.group(1) if m else None
             rango_detectado = _rango_desde_rutas(ip_local, r.stdout)
-    except Exception:
+    except (OSError, subprocess.SubprocessError):
         gateway = None
 
     # Si el sistema no expone la máscara, conserva un fallback seguro.

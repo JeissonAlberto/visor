@@ -1,10 +1,14 @@
 import unittest
 from unittest.mock import patch
 
-from core.red import MAX_SCAN_HOSTS, escanear_rango
+from core.red import MAX_SCAN_HOSTS, escanear_rango, hacer_ping
 
 
 class RangeScanTests(unittest.TestCase):
+    def test_ping_returns_offline_when_system_command_is_unavailable(self):
+        with patch("core.red.subprocess.run", side_effect=OSError("missing ping")):
+            self.assertEqual(hacer_ping("192.0.2.1"), (False, None))
+
     def test_rejects_oversized_range_before_network_probes(self):
         with patch("core.red.hacer_ping") as ping:
             with self.assertRaisesRegex(ValueError, "rango demasiado grande"):

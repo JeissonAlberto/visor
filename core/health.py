@@ -208,14 +208,14 @@ def traceroute(target: str, max_hops: int = 20) -> list:
                 try:
                     lats = [float(x.replace('<','')) for x in re.findall(r'(\d+)\s*ms', linea)]
                     lat_avg = round(sum(lats) / len(lats), 1) if lats else None
-                except:
+                except (TypeError, ValueError):
                     lat_avg = None
 
                 hostname = None
                 try:
                     if ip_hop and ip_hop != "*":
                         hostname = socket.gethostbyaddr(ip_hop)[0]
-                except:
+                except OSError:
                     pass
 
                 saltos.append({

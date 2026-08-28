@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch
 
-from core.lan_vision import MAX_LAN_HOSTS, _scan_ports_fast, discover_lan
+from core.lan_vision import MAX_LAN_HOSTS, _ping_host, _scan_ports_fast, discover_lan
 
 
 class _FailingSocket:
@@ -28,6 +28,10 @@ class LanVisionTests(unittest.TestCase):
         with patch("core.lan_vision.socket.socket", return_value=sock):
             self.assertEqual(_scan_ports_fast("192.0.2.1", [443]), [])
         self.assertTrue(sock.closed)
+
+    def test_ping_returns_offline_when_system_command_is_unavailable(self):
+        with patch("core.lan_vision.subprocess.run", side_effect=OSError("missing ping")):
+            self.assertFalse(_ping_host("192.0.2.1"))
 
     def test_empty_port_list_does_not_create_worker_pool(self):
         with patch("core.lan_vision.concurrent.futures.ThreadPoolExecutor") as executor:

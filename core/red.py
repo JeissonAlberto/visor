@@ -59,7 +59,7 @@ def hacer_ping(host: str, count: int = 1, timeout: int = 2) -> tuple[bool, float
 
         lat = _extraer_latencia(output)
         return True, lat
-    except Exception:
+    except (OSError, subprocess.SubprocessError):
         return False, None
 
 
@@ -100,7 +100,7 @@ def obtener_tabla_arp() -> str:
     try:
         r = subprocess.run(["arp", "-a"], capture_output=True, text=True, timeout=5)
         return r.stdout
-    except Exception:
+    except (OSError, subprocess.SubprocessError):
         return ""
 
 
@@ -212,5 +212,5 @@ def detectar_gateway() -> str | None:
             r = subprocess.run(["ip", "route"], capture_output=True, text=True)
             m = re.search(r"default via ([\d.]+)", r.stdout)
         return m.group(1) if m else None
-    except Exception:
+    except (OSError, subprocess.SubprocessError):
         return None

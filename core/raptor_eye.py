@@ -134,7 +134,7 @@ def hunt_vulnerabilities(target: str, grab_banners: bool = True) -> list:
                         "fix":    info["fix"],
                         "banner": banner,
                     }
-        except:
+        except OSError:
             pass
         return None
 

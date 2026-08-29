@@ -85,7 +85,7 @@ def _extraer_latencia(output: str) -> float | None:
     m = re.search(r"([\d.]+)\s*ms", output, re.IGNORECASE)
     if m:
         try: return float(m.group(1))
-        except: pass
+        except ValueError: pass
         
     return None
 

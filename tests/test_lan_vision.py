@@ -1,7 +1,13 @@
 import unittest
 from unittest.mock import patch
 
-from core.lan_vision import MAX_LAN_HOSTS, _ping_host, _scan_ports_fast, discover_lan
+from core.lan_vision import (
+    MAX_LAN_HOSTS,
+    MAX_PORT_WORKERS,
+    _ping_host,
+    _scan_ports_fast,
+    discover_lan,
+)
 
 
 class _FailingSocket:
@@ -37,6 +43,12 @@ class LanVisionTests(unittest.TestCase):
         with patch("core.lan_vision.concurrent.futures.ThreadPoolExecutor") as executor:
             self.assertEqual(_scan_ports_fast("192.0.2.1", []), [])
         executor.assert_not_called()
+
+    def test_port_probe_caps_worker_pool_for_custom_port_lists(self):
+        ports = list(range(1, MAX_PORT_WORKERS * 2 + 1))
+        with patch("core.lan_vision.concurrent.futures.ThreadPoolExecutor") as executor:
+            _scan_ports_fast("192.0.2.1", ports)
+        executor.assert_called_once_with(max_workers=MAX_PORT_WORKERS)
 
     def test_rejects_oversized_cidr_before_network_probes(self):
         with patch("core.lan_vision._ping_host") as ping:

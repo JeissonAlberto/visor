@@ -17,6 +17,8 @@ from datetime import datetime
 
 # Prevent accidental LAN scans from materializing huge CIDR ranges.
 MAX_LAN_HOSTS = 4096
+# Keep a malformed/custom port list from creating an unbounded thread pool.
+MAX_PORT_WORKERS = 64
 
 # ── OUI Database (Top vendors relevantes para ISP) ───────────────────────
 OUI_DB = {
@@ -163,7 +165,8 @@ def _scan_ports_fast(ip: str, ports: list = None) -> list:
         except OSError:
             pass
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=len(ports)) as ex:
+    workers = min(len(ports), MAX_PORT_WORKERS)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as ex:
         ex.map(check, ports)
     return sorted(abiertos)
 

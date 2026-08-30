@@ -257,7 +257,8 @@ def discover_lan(rango: str = None, scan_ports: bool = True, callback=None) -> l
             try:
                 if fut.result():
                     activos_ips.append(ip)
-            except:
+            except (OSError, ValueError, subprocess.SubprocessError):
+                # A failed probe must not abort discovery of other hosts.
                 pass
 
     # ── 3. Leer tabla ARP actualizada ─────────────────────────────────────

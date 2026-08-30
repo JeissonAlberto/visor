@@ -33,7 +33,8 @@ def scan_for_secrets(directory):
                                     "type": name,
                                     "line": content.count("\n", 0, match.start()) + 1
                                 })
-                except:
+                except (OSError, UnicodeError):
+                    # Unreadable files should not abort the repository scan.
                     pass
     return findings
 

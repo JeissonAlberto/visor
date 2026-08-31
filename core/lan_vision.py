@@ -128,7 +128,8 @@ def _get_arp_table() -> dict:
                 # Filtrar MACs de broadcast/multicast
                 if mac not in ("FF:FF:FF:FF:FF:FF", "00:00:00:00:00:00"):
                     tabla[ip] = mac
-    except Exception:
+    except (OSError, subprocess.SubprocessError, UnicodeError):
+        # ARP is an optional enrichment step; discovery can continue without it.
         pass
     return tabla
 

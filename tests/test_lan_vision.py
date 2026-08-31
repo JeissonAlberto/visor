@@ -1,9 +1,11 @@
+import subprocess
 import unittest
 from unittest.mock import patch
 
 from core.lan_vision import (
     MAX_LAN_HOSTS,
     MAX_PORT_WORKERS,
+    _get_arp_table,
     _ping_host,
     _scan_ports_fast,
     discover_lan,
@@ -38,6 +40,13 @@ class LanVisionTests(unittest.TestCase):
     def test_ping_returns_offline_when_system_command_is_unavailable(self):
         with patch("core.lan_vision.subprocess.run", side_effect=OSError("missing ping")):
             self.assertFalse(_ping_host("192.0.2.1"))
+
+    def test_arp_enrichment_returns_empty_table_when_command_times_out(self):
+        with patch(
+            "core.lan_vision.subprocess.run",
+            side_effect=subprocess.TimeoutExpired("arp", 5),
+        ):
+            self.assertEqual(_get_arp_table(), {})
 
     def test_empty_port_list_does_not_create_worker_pool(self):
         with patch("core.lan_vision.concurrent.futures.ThreadPoolExecutor") as executor:

@@ -171,7 +171,8 @@ def escanear_rango(rango: str, max_workers: int = 50) -> list[dict]:
         if activo:
             try:
                 hostname = socket.gethostbyaddr(ip)[0]
-            except Exception:
+            except OSError:
+                # Reverse DNS is optional and may fail for valid live hosts.
                 pass
         return {
             "ip":       ip,

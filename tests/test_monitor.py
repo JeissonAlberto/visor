@@ -2,6 +2,7 @@ import unittest
 from unittest.mock import patch
 
 from core.monitor import (
+    _descubrir_dispositivos_red,
     _rango_desde_mascara,
     _rango_desde_rutas,
     _resolver_direccion,
@@ -37,6 +38,14 @@ class MonitorTests(unittest.TestCase):
         self.assertEqual(method, "Sin dirección")
         by_mac.assert_not_called()
         resolve.assert_not_called()
+
+    def test_discovery_ignores_invalid_or_oversized_range(self):
+        with patch("core.monitor.detectar_red_local", return_value=(
+            "10.0.0.10", "10.0.0.1", "10.0.0.0/8"
+        )), patch("core.monitor.escanear_rango", side_effect=ValueError("rango demasiado grande")):
+            devices = _descubrir_dispositivos_red()
+
+        self.assertEqual([device["ip"] for device in devices], ["10.0.0.1", "10.0.0.10"])
 
     def test_auto_discovery_does_not_mutate_caller_list(self):
         configured = [{"nombre": "Gateway", "ip": "192.0.2.1"}]

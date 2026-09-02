@@ -146,7 +146,9 @@ def _descubrir_dispositivos_red() -> list[dict]:
             count += 1
             if count >= 30:   # máximo 30 hosts dinámicos
                 break
-    except Exception:
+    except ValueError:
+        # Solo se espera un rango inválido o demasiado grande; otros errores
+        # deben propagarse para no ocultar fallos del descubrimiento.
         pass
 
     return dispositivos

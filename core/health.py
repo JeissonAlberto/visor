@@ -225,7 +225,10 @@ def traceroute(target: str, max_hops: int = 20) -> list:
                     "lat_ms":   lat_avg,
                     "timeout":  "*" in linea and lat_avg is None,
                 })
-    except Exception as e:
+    except (OSError, subprocess.SubprocessError) as e:
+        # Fallos esperables de la herramienta del sistema (ausente, timeout,
+        # permisos o proceso fallido) se devuelven como un salto de error.
+        # Errores de programación no deben ocultarse como una traza vacía.
         saltos.append({"hop": 0, "ip": "error", "hostname": str(e), "lat_ms": None, "timeout": True})
 
     return saltos

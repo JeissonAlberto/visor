@@ -1,3 +1,4 @@
+import subprocess
 import unittest
 from unittest.mock import patch
 
@@ -26,6 +27,22 @@ class HealthTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 traceroute("192.0.2.1", MAX_TRACE_HOPS + 1)
         run.assert_not_called()
+
+    def test_traceroute_reports_expected_system_errors(self):
+        with patch("core.health.platform.system", return_value="Linux"), patch(
+            "core.health.subprocess.run", side_effect=subprocess.TimeoutExpired("traceroute", 60)
+        ):
+            result = traceroute("192.0.2.1", 7)
+
+        self.assertEqual(result[0]["ip"], "error")
+        self.assertTrue(result[0]["timeout"])
+
+    def test_traceroute_does_not_hide_unexpected_errors(self):
+        with patch("core.health.platform.system", return_value="Linux"), patch(
+            "core.health.subprocess.run", side_effect=RuntimeError("unexpected")
+        ):
+            with self.assertRaises(RuntimeError):
+                traceroute("192.0.2.1", 7)
 
     def test_traceroute_passes_valid_hop_limit_to_system_command(self):
         completed = type("Completed", (), {"stdout": "", "returncode": 0})()

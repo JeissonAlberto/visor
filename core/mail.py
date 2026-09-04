@@ -39,7 +39,9 @@ def enviar_correo(asunto: str, cuerpo: str) -> bool:
             smtp.login(SMTP_USER, SMTP_PASS)
             smtp.send_message(msg)
         return True
-    except Exception:
+    except (OSError, smtplib.SMTPException):
+        # Fallos esperables de transporte, TLS o autenticación no deben
+        # interrumpir el monitoreo; errores de programación sí deben aflorar.
         return False
 
 

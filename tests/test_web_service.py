@@ -91,6 +91,14 @@ class WebServiceTests(unittest.TestCase):
         self.assertTrue(context.check_hostname)
         socket_factory.return_value.connect.assert_called_once_with(("example.test", 443))
 
+    def test_unexpected_http_error_is_not_hidden(self):
+        with patch("core.web_service.socket.socket"), patch(
+            "core.web_service.urllib.request.urlopen",
+            side_effect=RuntimeError("unexpected test failure"),
+        ):
+            with self.assertRaises(RuntimeError):
+                verificar_url("https://example.test")
+
     def test_service_scan_ignores_malformed_entries_without_aborting(self):
         with patch("core.web_service.verificar_url", return_value={
             "url": "https://example.test", "online": True

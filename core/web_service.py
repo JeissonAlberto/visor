@@ -122,7 +122,8 @@ def verificar_url(url: str, timeout: int = 5) -> dict:
         t_sock = time.monotonic()
         sock.connect((host, port))
         t_red  = round((time.monotonic() - t_sock) * 1000, 1)
-    except Exception:
+    except OSError:
+        # Fallos de DNS, conexión o timeout son estados normales del escaneo.
         pass
     finally:
         # También cerrar el socket cuando connect() falla; de lo contrario
@@ -175,7 +176,7 @@ def verificar_url(url: str, timeout: int = 5) -> dict:
                         "lat_red":  t_red,
                         "error":    None,
                     }
-            except Exception:
+            except (urllib.error.URLError, OSError, ValueError):
                 pass
         
         lat_web = round((time.monotonic() - t0) * 1000, 1)
@@ -188,7 +189,7 @@ def verificar_url(url: str, timeout: int = 5) -> dict:
             "lat_red":  t_red,
             "error":    str(e.reason),
         }
-    except Exception as e:
+    except (urllib.error.URLError, OSError, ValueError) as e:
         lat_web = round((time.monotonic() - t0) * 1000, 1)
         return {
             "url":      url,
@@ -312,7 +313,7 @@ def geolocalizacion_ip(ip: str) -> dict:
             }
         else:
             return {"ip": ip, "privada": False, "error": data.get("message", "Sin datos")}
-    except Exception as e:
+    except (urllib.error.URLError, OSError, ValueError) as e:
         return {"ip": ip, "privada": False, "error": str(e)[:80]}
 
 

@@ -7,6 +7,7 @@ Sin dependencias externas — solo stdlib.
 import subprocess
 import platform
 import re
+import http.client
 import statistics
 import time
 import urllib.request
@@ -78,7 +79,7 @@ def _ping_latencias(host: str, count: int = 4) -> list[float]:
                 return [float(m.group(1))] * count
                 
         return valores
-    except Exception:
+    except (OSError, subprocess.SubprocessError, ValueError):
         return []
 
 
@@ -110,7 +111,7 @@ def _medir_descarga(duracion_max: float = 8.0) -> tuple[float | None, str]:
             if elapsed > 0.5 and descargado > 0:
                 mbps = round((descargado * 8) / elapsed / 1_000_000, 2)
                 return mbps, nombre
-        except Exception:
+        except (urllib.error.URLError, http.client.HTTPException, OSError, ValueError):
             continue
 
     return None, "Sin acceso a servidores de prueba"
@@ -139,7 +140,7 @@ def _medir_con_speedtest() -> tuple[float | None, float | None, str]:
         ul    = round(data["upload"]   / 1_000_000, 2)
         server = data.get("server", {}).get("name", "Speedtest.net")
         return dl, ul, server
-    except Exception as e:
+    except (OSError, subprocess.SubprocessError, ValueError, KeyError, TypeError) as e:
         return None, None, str(e)
 
 
@@ -171,7 +172,7 @@ def _medir_subida(duracion_max: float = 10.0) -> tuple[float | None, str]:
             if elapsed > 0.2:
                 mbps = round((len(datos) * 8) / elapsed / 1_000_000, 2)
                 return mbps, nombre
-        except Exception:
+        except (urllib.error.URLError, http.client.HTTPException, OSError, ValueError):
             continue
 
     return None, "Sin acceso al servidor de subida"
@@ -209,7 +210,7 @@ def _medir_throughput_tcp() -> tuple[float | None, str]:
                         if not bloque:
                             break
                         recibido += len(bloque)
-        except Exception as e:
+        except OSError as e:
             estado["error"] = str(e)
             servidor_listo.set()
 
@@ -238,7 +239,7 @@ def _medir_throughput_tcp() -> tuple[float | None, str]:
         if elapsed > 0:
             mbps = round((DATOS * 8) / elapsed / 1_000_000, 1)
             return mbps, "loopback"
-    except Exception as e:
+    except OSError as e:
         return None, str(e)
     finally:
         if hilo.is_alive():

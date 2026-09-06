@@ -3,7 +3,7 @@ import ssl
 import unittest
 from unittest.mock import patch
 
-from core.test_internet import _medir_throughput_tcp, _ssl_ctx
+from core.test_internet import _medir_throughput_tcp, _ping_latencias, _ssl_ctx
 
 
 class InternetSecurityTests(unittest.TestCase):
@@ -11,6 +11,11 @@ class InternetSecurityTests(unittest.TestCase):
         context = _ssl_ctx()
         self.assertTrue(context.check_hostname)
         self.assertEqual(context.verify_mode, ssl.CERT_REQUIRED)
+
+    def test_unexpected_ping_failure_is_not_hidden(self):
+        with patch("core.test_internet.subprocess.run", side_effect=RuntimeError("unexpected test failure")):
+            with self.assertRaises(RuntimeError):
+                _ping_latencias("example.test")
 
     def test_loopback_throughput_uses_ephemeral_port(self):
         source = inspect.getsource(_medir_throughput_tcp)

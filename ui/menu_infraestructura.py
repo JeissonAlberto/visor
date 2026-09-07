@@ -178,7 +178,7 @@ def _menu_connect():
                 res = s.connect_ex((host, port))
                 s.close()
                 estado = ok("  ONLINE  ") if res == 0 else fallo(" OFFLINE ")
-            except:
+            except OSError:
                 estado = fallo(" ERROR   ")
         else:
             estado = warn("  NO CONF ")

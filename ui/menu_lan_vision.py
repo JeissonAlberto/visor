@@ -25,7 +25,7 @@ def _barra_progreso(actual: int, total: int, ancho: int = 30) -> str:
 def _ip_sort_key(ip: str):
     try:
         return tuple(int(x) for x in ip.split("."))
-    except:
+    except (AttributeError, TypeError, ValueError):
         return (0, 0, 0, 0)
 
 
@@ -69,7 +69,7 @@ def _detectar_rango() -> str:
         s.close()
         partes = ip.split(".")
         return ".".join(partes[:3]) + ".0/24"
-    except:
+    except (OSError, IndexError, TypeError, ValueError):
         return "192.168.1.0/24"
 
 
@@ -165,7 +165,7 @@ def _investigar_host():
     # Resolver hostname a IP
     try:
         ip = socket.gethostbyname(target)
-    except:
+    except (OSError, TypeError, ValueError):
         print(f"  {fallo(f'No se pudo resolver: {target}')}")
         return
 
@@ -290,7 +290,7 @@ def _mapa_visual():
             r = subprocess.run(["ip", "route"], capture_output=True, text=True)
             m = re.search(r"default via ([\d.]+)", r.stdout)
         gw_ip = m.group(1) if m else None
-    except:
+    except (OSError, subprocess.SubprocessError, AttributeError, TypeError, ValueError):
         pass
 
     separador("🗺️  MAPA DE RED LOCAL")

@@ -4,6 +4,7 @@ Jasol Group · Ing. Jeisson Alberto Sarmiento · Saravena, Arauca, Colombia
 """
 
 from datetime import datetime
+import sqlite3
 from core.colores import (
     banner, separador, titulo, info, ok, fallo, warn,
     dim, resaltar, azul, naranja, tabla_estado, firma
@@ -248,7 +249,7 @@ def _menu_rango():
         s.close()
         partes = ip_local.split(".")
         rango_auto = ".".join(partes[:3]) + ".0/24"
-    except Exception:
+    except (OSError, IndexError, TypeError, ValueError):
         pass
 
     print(f"\n  {dim('Ejemplos: 192.168.1.0/24  |  10.0.0.0/24  |  172.16.0.0/24')}")
@@ -318,7 +319,7 @@ def _es_privada(ip: str) -> bool:
     import ipaddress
     try:
         return ipaddress.ip_address(ip).is_private
-    except Exception:
+    except (TypeError, ValueError):
         return True
 
 
@@ -346,7 +347,7 @@ def _info_interfaces():
         s.connect(("8.8.8.8", 80))
         ip_local = s.getsockname()[0]
         s.close()
-    except Exception:
+    except OSError:
         pass
 
     hostname = socket.gethostname()
@@ -357,7 +358,7 @@ def _info_interfaces():
         ip_pub_req = __import__("urllib.request", fromlist=["urlopen"]).urlopen(
             "https://api.ipify.org", timeout=5).read().decode()
         print(f"  {resaltar('IP pública:')}       {ip_pub_req}")
-    except Exception:
+    except (OSError, UnicodeError, ValueError):
         print(f"  {resaltar('IP pública:')}       {warn('No disponible')}")
 
     print()
@@ -375,7 +376,7 @@ def _info_interfaces():
                                              "inet ", "ether", "descripción", "description",
                                              "dirección física", "physical address"]):
                 print(f"  {dim(l)}")
-    except Exception as e:
+    except (OSError, subprocess.SubprocessError, AttributeError, UnicodeError) as e:
         print(f"  {warn('No se pudo obtener info de interfaces: ' + str(e))}")
 
     input(f"\n  {dim('Enter para continuar...')}")
@@ -395,7 +396,7 @@ def _geolocalizacion_manual():
             import urllib.request
             ip_input = urllib.request.urlopen("https://api.ipify.org", timeout=5).read().decode()
             print(f"  {dim('Tu IP pública: ' + ip_input)}")
-        except Exception:
+        except (OSError, UnicodeError, ValueError):
             print(f"  {fallo('No se pudo obtener la IP pública.')}")
             input(f"\n  {dim('Enter para continuar...')}")
             return
@@ -465,7 +466,7 @@ def _menu_auditoria_seguridad():
             for h in historial:
                 print(f"    {h[1]} | {h[2]} | {h[3]}")
             print()
-    except Exception:
+    except sqlite3.Error:
         pass
 
     ip = input(f"  {info('Ingresa la IP o Dominio para auditar:')} ").strip()
@@ -502,7 +503,7 @@ def _menu_auditoria_seguridad():
     try:
         sesion_id = guardar_sesion_seguridad(ip, res)
         print(f"\n  {dim(f'Auditoría guardada en base de datos local (Sesión ID: {sesion_id})')}")
-    except Exception as e:
+    except (sqlite3.Error, KeyError, TypeError) as e:
         print(f"\n  {warn(f'No se pudo guardar en la base de datos: {e}')}")
     
     separador()

@@ -76,6 +76,9 @@ visor --internet     # Test de calidad de internet
 visor --watch        # Monitoreo continuo LAN + servicios públicos
 visor --setup        # Asistente de configuración
 visor --report       # Ver último reporte
+visor --topology [HOST]       # Topología LAN + ruta L3 verificada
+visor --topology-watch [HOST] # Monitor continuo por salto
+visor --watch-interval 60 --watch-cycles 10 # Parámetros del monitor
 visor --version      # Ver versión
 ```
 
@@ -102,6 +105,9 @@ visor/
 │   ├── red.py               ← Ping, ARP, escaneo de rangos
 │   ├── web_service.py       ← Verificación HTTP
 │   ├── test_internet.py     ← Test de calidad de internet
+│   ├── topology.py          ← Topología LAN + ruta L3 verificadas
+│   ├── path_monitor.py      ← Monitor continuo por salto
+│   ├── wifi.py              ← Contexto Wi-Fi y asociaciones autorizadas
 │   ├── mail.py              ← Alertas por correo
 │   └── colores.py           ← Estilos de consola
 ├── ui/
@@ -198,7 +204,7 @@ Las credenciales de infraestructura siguen el mismo criterio:
 
 ---
 
-*Visor v2.0 — Python 3.10+ · Solo stdlib · Open source*
+*Visor v5.2.1 — Python 3.10+ · Solo stdlib · Open source*
 
 
 #### Clientes Wi-Fi

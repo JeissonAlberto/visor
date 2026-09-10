@@ -26,6 +26,28 @@ from ui.menu import menu_principal
 from ui.setup_wizard import setup_wizard
 
 
+def _watch_interval(value: str) -> int:
+    """Valida el intervalo del monitor antes de iniciar tráfico de red."""
+    try:
+        seconds = int(value)
+    except (TypeError, ValueError) as exc:
+        raise argparse.ArgumentTypeError("el intervalo debe ser un entero") from exc
+    if seconds < 10:
+        raise argparse.ArgumentTypeError("el intervalo mínimo es 10 segundos")
+    return seconds
+
+
+def _watch_cycles(value: str) -> int:
+    """Valida el número de muestras; cero significa ejecución continua."""
+    try:
+        cycles = int(value)
+    except (TypeError, ValueError) as exc:
+        raise argparse.ArgumentTypeError("el número de muestras debe ser un entero") from exc
+    if cycles < 0:
+        raise argparse.ArgumentTypeError("el número de muestras no puede ser negativo")
+    return cycles
+
+
 def parse_args():
     parser = argparse.ArgumentParser(
         prog="visor",
@@ -47,8 +69,8 @@ def parse_args():
     parser.add_argument("--traceroute", metavar="HOST",       help="Traceroute con latencia por salto")
     parser.add_argument("--topology", nargs="?", const="8.8.8.8", metavar="HOST", help="Mapea LAN y ruta L3 verificada hacia HOST")
     parser.add_argument("--topology-watch", nargs="?", const="8.8.8.8", metavar="HOST", help="Monitor continuo de ruta estilo PingPlotter")
-    parser.add_argument("--watch-interval", type=int, default=60, metavar="SEG", help="Intervalo del monitor continuo (mínimo 10 s)")
-    parser.add_argument("--watch-cycles", type=int, default=0, metavar="N", help="Número de muestras; 0 mantiene el monitor activo")
+    parser.add_argument("--watch-interval", type=_watch_interval, default=60, metavar="SEG", help="Intervalo del monitor continuo (mínimo 10 s)")
+    parser.add_argument("--watch-cycles", type=_watch_cycles, default=0, metavar="N", help="Número de muestras; 0 mantiene el monitor activo")
     parser.add_argument("--version",    action="store_true",  help="Versión de Visor")
     return parser.parse_args()
 

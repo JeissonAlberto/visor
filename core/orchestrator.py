@@ -121,7 +121,7 @@ class MissionOrchestrator:
         print(f"  {'─'*55}")
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
-            f_lan = ex.submit(full_lan_scan, self.network)
+            f_lan = ex.submit(discover_lan, self.network)
             lan_res = _spinner_task("[LAN-Vision] Descubriendo dispositivos", f_lan, 120)
 
         self.results = {
@@ -159,7 +159,7 @@ class MissionOrchestrator:
         with concurrent.futures.ThreadPoolExecutor(max_workers=3) as ex:
             f_ping   = ex.submit(analizar_calidad, target, 10)
             f_raptor = ex.submit(hunt_vulnerabilities, target)
-            f_lan    = ex.submit(full_lan_scan, self.network, max_workers=80)
+            f_lan    = ex.submit(discover_lan, self.network)
 
             ping_res   = _spinner_task("[Quick] Calidad de red",      f_ping,   20)
             raptor_res = _spinner_task("[Quick] Amenazas del host",   f_raptor, 30)
@@ -191,7 +191,7 @@ class MissionOrchestrator:
             f_health  = ex.submit(analizar_completo)
             f_raptor  = ex.submit(hunt_vulnerabilities, target)
             f_medusa  = ex.submit(scan_for_secrets, ".")
-            f_lan     = ex.submit(full_lan_scan, self.network, max_workers=100)
+            f_lan     = ex.submit(discover_lan, self.network)
 
             health_res  = _spinner_task("[Health]  LAN→ISP→Internet",    f_health,  60)
             raptor_res  = _spinner_task("[Raptor]  Threat Hunting",       f_raptor,  60)

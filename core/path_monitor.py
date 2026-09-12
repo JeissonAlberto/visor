@@ -8,9 +8,11 @@ from __future__ import annotations
 
 import csv
 import json
+import os
 import platform
 import re
 import subprocess
+import tempfile
 import time
 from datetime import datetime
 from pathlib import Path
@@ -129,6 +131,29 @@ def monitor_once(host: str, ping_count: int = 3,
     return topology
 
 
+def _atomic_write_text(path: Path, content: str) -> None:
+    """Escribe un archivo estable sin dejarlo truncado si el proceso se interrumpe."""
+    temporary_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=path.parent,
+            prefix=f".{path.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as handle:
+            temporary_path = Path(handle.name)
+            handle.write(content)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary_path, path)
+        temporary_path = None
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
+
+
 def write_live_reports(topology: dict, report_dir: Path | None = None) -> dict:
     """Actualiza archivos estables y añade una fila al historial 24/7."""
     directory = Path(report_dir or REPORTS_DIR)
@@ -140,9 +165,9 @@ def write_live_reports(topology: dict, report_dir: Path | None = None) -> dict:
         "history": directory / "topology_watch_history.jsonl",
         "csv": directory / "topology_watch_history.csv",
     }
-    paths["json"].write_text(json.dumps(topology, ensure_ascii=False, indent=2), encoding="utf-8")
-    paths["txt"].write_text(render_topology_text(topology), encoding="utf-8")
-    paths["drawio"].write_text(render_topology_drawio(topology), encoding="utf-8")
+    _atomic_write_text(paths["json"], json.dumps(topology, ensure_ascii=False, indent=2))
+    _atomic_write_text(paths["txt"], render_topology_text(topology))
+    _atomic_write_text(paths["drawio"], render_topology_drawio(topology))
     with paths["history"].open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(topology, ensure_ascii=False) + "\n")
     csv_exists = paths["csv"].exists()

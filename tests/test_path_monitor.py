@@ -1,8 +1,9 @@
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
-from core.path_monitor import monitor_once, parse_ping_output, write_live_reports
+from core.path_monitor import _atomic_write_text, monitor_once, parse_ping_output, write_live_reports
 
 
 class PathMonitorTests(unittest.TestCase):
@@ -29,6 +30,16 @@ class PathMonitorTests(unittest.TestCase):
         self.assertEqual(metric["perdida_pct"], 10)
         self.assertEqual(metric["promedio_ms"], 5.0)
         self.assertTrue(metric["alcanzable"])
+
+    def test_atomic_write_preserves_previous_file_on_replace_failure(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "topology_live.json"
+            path.write_text("previous", encoding="utf-8")
+            with patch("core.path_monitor.os.replace", side_effect=OSError("replace failed")):
+                with self.assertRaises(OSError):
+                    _atomic_write_text(path, "new")
+            self.assertEqual(path.read_text(encoding="utf-8"), "previous")
+            self.assertEqual(list(Path(directory).glob("*.tmp")), [])
 
     def test_monitor_adds_metrics_and_writes_live_drawio(self):
         topology = {

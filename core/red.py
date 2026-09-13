@@ -177,7 +177,7 @@ def escanear_rango(rango: str, max_workers: int = 50) -> list[dict]:
         return {
             "ip":       ip,
             "activo":   activo,
-            "latencia": round(lat, 1) if lat else None,
+            "latencia": round(lat, 1) if lat is not None else None,
             "hostname": hostname,
             "estado":   "UP" if activo else "DOWN",
         }

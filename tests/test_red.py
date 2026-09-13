@@ -24,6 +24,13 @@ class RangeScanTests(unittest.TestCase):
         self.assertEqual(len(results), 2)
         self.assertEqual(ping.call_count, 2)
 
+    def test_zero_latency_is_preserved_for_active_host(self):
+        with patch("core.red.hacer_ping", return_value=(True, 0.0)):
+            results = escanear_rango("192.0.2.0/31")
+
+        self.assertTrue(all(result["activo"] for result in results))
+        self.assertTrue(all(result["latencia"] == 0.0 for result in results))
+
     def test_reverse_dns_failure_does_not_discard_active_host(self):
         with patch("core.red.hacer_ping", return_value=(True, 4.2)), patch(
             "core.red.socket.gethostbyaddr", side_effect=socket.gaierror

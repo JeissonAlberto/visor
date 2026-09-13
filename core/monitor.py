@@ -232,7 +232,7 @@ def escanear_dispositivos(dispositivos: list | None = None, auto_descubrir: bool
             "grupo":    dev.get("grupo", "General"),
             "online":   online,
             "estado":   "UP" if online else "DOWN",
-            "latencia": round(lat, 1) if lat else None,
+            "latencia": round(lat, 1) if lat is not None else None,
             "metodo":   metodo,
             "ts":       datetime.now().isoformat(timespec="seconds"),
         }

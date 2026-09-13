@@ -61,6 +61,17 @@ class MonitorTests(unittest.TestCase):
         self.assertEqual(len(results), 2)
         self.assertEqual([r["ip"] for r in results], ["192.0.2.1", "192.0.2.2"])
 
+    def test_zero_latency_is_preserved_for_online_device(self):
+        with patch("core.monitor.detectar_red_local", return_value=(
+            "192.0.2.10", "192.0.2.1", "192.0.2.0/24"
+        )), patch("core.monitor.hacer_ping", return_value=(True, 0.0)):
+            results = escanear_dispositivos(
+                [{"nombre": "Gateway", "ip": "192.0.2.1"}], auto_descubrir=False
+            )
+
+        self.assertEqual(results[0]["estado"], "UP")
+        self.assertEqual(results[0]["latencia"], 0.0)
+
     def test_malformed_device_entries_are_skipped(self):
         with patch("core.monitor.detectar_red_local", return_value=(
             "127.0.0.1", None, "192.168.1.0/24"

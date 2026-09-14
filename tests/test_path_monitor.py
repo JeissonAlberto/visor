@@ -57,9 +57,15 @@ class PathMonitorTests(unittest.TestCase):
         self.assertEqual(result["monitorizacion"]["saltos"][0]["promedio_ms"], 8.0)
         with tempfile.TemporaryDirectory() as directory:
             paths = write_live_reports(result, Path(directory))
+            write_live_reports(result, Path(directory))
             self.assertTrue(Path(paths["drawio"]).exists())
             self.assertTrue(Path(paths["csv"]).exists())
             self.assertIn("ICMP", Path(paths["txt"]).read_text(encoding="utf-8"))
+            history_lines = Path(paths["history"]).read_text(encoding="utf-8").splitlines()
+            self.assertEqual(len(history_lines), 2)
+            csv_lines = Path(paths["csv"]).read_text(encoding="utf-8").splitlines()
+            self.assertEqual(len(csv_lines), 3)  # encabezado + una métrica por muestra
+            self.assertEqual(sum(line.startswith("ts,") for line in csv_lines), 1)
 
 
 if __name__ == "__main__":

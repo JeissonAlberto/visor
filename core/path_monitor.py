@@ -154,6 +154,12 @@ def _atomic_write_text(path: Path, content: str) -> None:
             temporary_path.unlink(missing_ok=True)
 
 
+def _flush_and_sync(handle) -> None:
+    """Confirma en disco una escritura de historial antes de continuar."""
+    handle.flush()
+    os.fsync(handle.fileno())
+
+
 def write_live_reports(topology: dict, report_dir: Path | None = None) -> dict:
     """Actualiza archivos estables y añade una fila al historial 24/7."""
     directory = Path(report_dir or REPORTS_DIR)
@@ -170,6 +176,7 @@ def write_live_reports(topology: dict, report_dir: Path | None = None) -> dict:
     _atomic_write_text(paths["drawio"], render_topology_drawio(topology))
     with paths["history"].open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(topology, ensure_ascii=False) + "\n")
+        _flush_and_sync(handle)
     csv_exists = paths["csv"].exists()
     with paths["csv"].open("a", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=["ts", "objetivo", "host", "perdida_pct", "promedio_ms", "alcanzable"])
@@ -178,6 +185,7 @@ def write_live_reports(topology: dict, report_dir: Path | None = None) -> dict:
         monitor = topology.get("monitorizacion", {})
         for metric in monitor.get("saltos", []):
             writer.writerow({"ts": topology.get("ts", ""), "objetivo": monitor.get("objetivo", ""), **metric})
+        _flush_and_sync(handle)
     return {key: str(path) for key, path in paths.items()}
 
 

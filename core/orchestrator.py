@@ -20,6 +20,7 @@ from core.guardian_ai import generate_remediation_plan, generar_reporte_ejecutiv
 from core.medusa_shield import scan_for_secrets
 from core.health import analizar_calidad, analizar_completo
 from core.lan_vision import discover_lan
+from core.topology import build_topology
 
 
 # ── Tipos de misión ───────────────────────────────────────────────────────
@@ -134,6 +135,24 @@ class MissionOrchestrator:
         return self.results
 
     # ── HEALTH CHECK ─────────────────────────────────────────────────────
+    def execute_infra_mission(self) -> dict:
+        """Obtiene una topología L3 observada sin cambiar la infraestructura."""
+        target = self.target or "8.8.8.8"
+        print(f"\n  🖥️  Revisión de Infraestructura L3 hacia: {target}")
+        print(f"  {'─'*55}")
+        topology = build_topology(
+            trace_targets=[target],
+            rango=self.network,
+            scan_ports=False,
+        )
+        self.results = {
+            "tipo": "INFRA_CHECK",
+            "target": target,
+            "topologia": topology,
+            "ts": self.ts,
+        }
+        return self.results
+
     def execute_health_mission(self) -> dict:
         print(f"\n  🩺  Iniciando Diagnóstico de Red Multi-Capa...")
         print(f"  {'─'*55}")
@@ -230,6 +249,7 @@ def run_orchestrated_task(task_type: str, target: str = None, network: str = Non
     dispatch = {
         "SECURITY_AUDIT": orch.execute_security_mission,
         "LAN_DISCOVERY":  orch.execute_lan_mission,
+        "INFRA_CHECK":    orch.execute_infra_mission,
         "HEALTH_CHECK":   orch.execute_health_mission,
         "QUICK_SCAN":     orch.execute_quick_scan,
         "FULL_NOC":       orch.execute_full_noc,

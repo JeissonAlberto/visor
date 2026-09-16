@@ -18,6 +18,7 @@ Uso:
     visor --health              # Diagnóstico de calidad multi-capa
     visor --traceroute <host>   # Traceroute con latencia por salto
     visor --topology [host]    # Topología LAN + ruta L3 verificada
+    visor --infra-check [host] # Revisión L3 mediante el orquestador NOC
 """
 
 import sys
@@ -68,6 +69,7 @@ def parse_args():
     parser.add_argument("--health",     action="store_true",  help="Diagnóstico de calidad de red multi-capa")
     parser.add_argument("--traceroute", metavar="HOST",       help="Traceroute con latencia por salto")
     parser.add_argument("--topology", nargs="?", const="8.8.8.8", metavar="HOST", help="Mapea LAN y ruta L3 verificada hacia HOST")
+    parser.add_argument("--infra-check", nargs="?", const="8.8.8.8", metavar="HOST", help="Revisión L3 observacional mediante el orquestador NOC")
     parser.add_argument("--topology-watch", nargs="?", const="8.8.8.8", metavar="HOST", help="Monitor continuo de ruta estilo PingPlotter")
     parser.add_argument("--watch-interval", type=_watch_interval, default=60, metavar="SEG", help="Intervalo del monitor continuo (mínimo 10 s)")
     parser.add_argument("--watch-cycles", type=_watch_cycles, default=0, metavar="N", help="Número de muestras; 0 mantiene el monitor activo")
@@ -175,6 +177,22 @@ def main():
         from core.path_monitor import run_topology_watch
         run_topology_watch(args.topology_watch, interval_s=args.watch_interval, cycles=args.watch_cycles)
         return
+
+    if args.infra_check:
+        from core.colores import banner, separador, titulo
+        from core.orchestrator import run_orchestrated_task
+        from core.topology import render_topology_text
+        banner()
+        print(f"\n  {titulo('REVISIÓN DE INFRAESTRUCTURA L3')} → {args.infra_check}")
+        separador()
+        result = run_orchestrated_task("INFRA_CHECK", target=args.infra_check)
+        topology = result.get("topologia", {})
+        if topology:
+            print(render_topology_text(topology))
+        else:
+            print(f"  No se pudo generar la topología: {result.get('error', 'resultado vacío')}")
+        separador()
+        sys.exit(0)
 
     if args.topology:
         from core.colores import banner, separador, titulo, ok, dim

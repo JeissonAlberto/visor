@@ -17,6 +17,12 @@ class MainArgumentTests(unittest.TestCase):
         self.assertEqual(args.watch_interval, 10)
         self.assertEqual(args.watch_cycles, 2)
 
+    def test_infra_check_accepts_optional_target(self):
+        default = self._parse("--infra-check")
+        explicit = self._parse("--infra-check", "192.0.2.1")
+        self.assertEqual(default.infra_check, "8.8.8.8")
+        self.assertEqual(explicit.infra_check, "192.0.2.1")
+
     def test_watch_interval_rejects_values_below_minimum(self):
         with contextlib.redirect_stderr(io.StringIO()):
             with self.assertRaises(SystemExit) as raised:

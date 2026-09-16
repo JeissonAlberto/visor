@@ -77,6 +77,7 @@ visor --watch        # Monitoreo continuo LAN + servicios públicos
 visor --setup        # Asistente de configuración
 visor --report       # Ver último reporte
 visor --topology [HOST]       # Topología LAN + ruta L3 verificada
+visor --infra-check [HOST]    # Revisión L3 mediante el orquestador NOC
 visor --topology-watch [HOST] # Monitor continuo por salto
 visor --watch-interval 60 --watch-cycles 10 # Parámetros del monitor
 visor --version      # Ver versión

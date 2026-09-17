@@ -2,6 +2,7 @@ import contextlib
 import io
 import sys
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import main
@@ -22,6 +23,19 @@ class MainArgumentTests(unittest.TestCase):
         explicit = self._parse("--infra-check", "192.0.2.1")
         self.assertEqual(default.infra_check, "8.8.8.8")
         self.assertEqual(explicit.infra_check, "192.0.2.1")
+
+    def test_watch_uses_validated_cli_interval(self):
+        with patch.object(main, "parse_args", return_value=SimpleNamespace(
+            version=False, setup=False, watch=True, watch_interval=15,
+            scan=False, web=False, internet=False, report=False,
+            connect=False, lan=False, hunt=None, health=False,
+            traceroute=None, topology_watch=None, infra_check=None,
+            topology=None, noc=False,
+        )), patch("core.monitor.monitoreo_continuo") as monitor:
+            with self.assertRaises(SystemExit) as raised:
+                main.main()
+        self.assertEqual(raised.exception.code, 0)
+        monitor.assert_called_once_with(intervalo=15)
 
     def test_watch_interval_rejects_values_below_minimum(self):
         with contextlib.redirect_stderr(io.StringIO()):

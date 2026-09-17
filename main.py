@@ -71,8 +71,8 @@ def parse_args():
     parser.add_argument("--topology", nargs="?", const="8.8.8.8", metavar="HOST", help="Mapea LAN y ruta L3 verificada hacia HOST")
     parser.add_argument("--infra-check", nargs="?", const="8.8.8.8", metavar="HOST", help="Revisión L3 observacional mediante el orquestador NOC")
     parser.add_argument("--topology-watch", nargs="?", const="8.8.8.8", metavar="HOST", help="Monitor continuo de ruta estilo PingPlotter")
-    parser.add_argument("--watch-interval", type=_watch_interval, default=60, metavar="SEG", help="Intervalo del monitor continuo (mínimo 10 s)")
-    parser.add_argument("--watch-cycles", type=_watch_cycles, default=0, metavar="N", help="Número de muestras; 0 mantiene el monitor activo")
+    parser.add_argument("--watch-interval", type=_watch_interval, default=60, metavar="SEG", help="Intervalo de --watch y --topology-watch (mínimo 10 s)")
+    parser.add_argument("--watch-cycles", type=_watch_cycles, default=0, metavar="N", help="Muestras de --topology-watch; 0 mantiene ese monitor activo")
     parser.add_argument("--version",    action="store_true",  help="Versión de Visor")
     return parser.parse_args()
 
@@ -91,9 +91,10 @@ def main():
         sys.exit(0)
 
     if args.watch:
-        from config.settings import INTERVALO_MONITOREO
         from core.monitor import monitoreo_continuo
-        monitoreo_continuo(intervalo=INTERVALO_MONITOREO)
+        # Respetar el intervalo validado por CLI; el valor predeterminado
+        # mantiene la configuración histórica de 60 segundos.
+        monitoreo_continuo(intervalo=args.watch_interval)
         sys.exit(0)
 
     # ── Flags directos sin menú ───────────────────────────────────────────

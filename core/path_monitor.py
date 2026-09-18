@@ -30,8 +30,8 @@ def parse_ping_output(output: str) -> dict:
     """
     text = output or ""
     loss_match = re.search(
-        r"(?:\(\s*)?(\d+(?:\.\d+)?)%\s*"
-        r"(?:loss|lost|packet\s+loss|perdidos?|perdida)\s*\)?",
+        r"(?:\(\s*)?(\d+(?:\.\d+)?)%\s*(?:de\s+)?"
+        r"(?:loss|lost|packet\s+loss|p[eé]rdid[oa]s?)\s*\)?",
         text,
         re.IGNORECASE,
     )

@@ -14,6 +14,13 @@ class PathMonitorTests(unittest.TestCase):
         self.assertEqual(metric["promedio_ms"], 2.0)
         self.assertTrue(metric["alcanzable"])
 
+    def test_parses_accented_spanish_ping_loss(self):
+        output = "5 paquetes transmitidos, 5 recibidos, 0% de pérdida de paquetes\nMedia = 3 ms"
+        metric = parse_ping_output(output)
+        self.assertEqual(metric["perdida_pct"], 0)
+        self.assertEqual(metric["promedio_ms"], 3.0)
+        self.assertTrue(metric["alcanzable"])
+
     def test_parses_linux_ping_summary(self):
         output = (
             "3 packets transmitted, 3 received, 0% packet loss, time 2002ms\n"

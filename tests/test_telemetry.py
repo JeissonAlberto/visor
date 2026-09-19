@@ -14,6 +14,13 @@ class TelemetryTests(unittest.TestCase):
         self.assertNotIn("8.8.8.8", json.dumps(safe))
         self.assertNotIn("10.0.0.1", json.dumps(safe))
 
+    def test_topology_event_ignores_malformed_optional_metrics(self):
+        event = topology_event({"ts": "2026-08-06T00:00:00Z", "monitorizacion": {"saltos": [None, "invalid"]}})
+        self.assertEqual(event["payload"]["path_metrics"], [])
+
+        event = topology_event({"monitorizacion": {"saltos": "invalid"}})
+        self.assertEqual(event["payload"]["path_metrics"], [])
+
     def test_client_is_opt_in_and_sends_to_test_adapter(self):
         skipped = TelemetryClient(url="http://127.0.0.1:3049/events", enabled=False).send_event({"x": 1})
         self.assertTrue(skipped["skipped"])

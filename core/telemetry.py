@@ -55,9 +55,20 @@ def topology_event(topology: dict[str, Any], include_identifiers: bool = False) 
     Por defecto anonimiza IP/host de destino. Se puede habilitar la inclusión
     de identificadores solo en una instalación controlada del NOC.
     """
+    # La telemetría es opcional y no debe detener el monitor si una fuente
+    # externa entrega una muestra parcial o con tipos inesperados.
+    if not isinstance(topology, dict):
+        topology = {}
     monitor = topology.get("monitorizacion", {})
+    if not isinstance(monitor, dict):
+        monitor = {}
+    raw_metrics = monitor.get("saltos", [])
+    if not isinstance(raw_metrics, list):
+        raw_metrics = []
     path_metrics = []
-    for metric in monitor.get("saltos", []):
+    for metric in raw_metrics:
+        if not isinstance(metric, dict):
+            continue
         item = {
             "perdida_pct": metric.get("perdida_pct"),
             "promedio_ms": metric.get("promedio_ms"),

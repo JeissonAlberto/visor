@@ -160,6 +160,17 @@ def _flush_and_sync(handle) -> None:
     os.fsync(handle.fileno())
 
 
+def _validated_monitor_metrics(topology: dict) -> tuple[dict, list[dict]]:
+    """Devuelve monitor y métricas con una forma segura para los reportes."""
+    monitor = topology.get("monitorizacion", {}) if isinstance(topology, dict) else {}
+    if not isinstance(monitor, dict):
+        monitor = {}
+    metrics = monitor.get("saltos", [])
+    if not isinstance(metrics, list):
+        metrics = []
+    return monitor, [metric for metric in metrics if isinstance(metric, dict)]
+
+
 def write_live_reports(topology: dict, report_dir: Path | None = None) -> dict:
     """Actualiza archivos estables y añade una fila al historial 24/7."""
     directory = Path(report_dir or REPORTS_DIR)
@@ -182,8 +193,8 @@ def write_live_reports(topology: dict, report_dir: Path | None = None) -> dict:
         writer = csv.DictWriter(handle, fieldnames=["ts", "objetivo", "host", "perdida_pct", "promedio_ms", "alcanzable"])
         if not csv_exists:
             writer.writeheader()
-        monitor = topology.get("monitorizacion", {})
-        for metric in monitor.get("saltos", []):
+        monitor, metrics = _validated_monitor_metrics(topology)
+        for metric in metrics:
             writer.writerow({"ts": topology.get("ts", ""), "objetivo": monitor.get("objetivo", ""), **metric})
         _flush_and_sync(handle)
     return {key: str(path) for key, path in paths.items()}
@@ -205,12 +216,12 @@ def run_topology_watch(host: str = "8.8.8.8", interval_s: int = 60,
                 topology = monitor_once(host, ping_count=ping_count)
                 paths = write_live_reports(topology, report_dir)
                 telemetry_result = telemetry.send_topology(topology)
-                metrics = topology.get("monitorizacion", {}).get("saltos", [])
+                _, metrics = _validated_monitor_metrics(topology)
                 loss = [m.get("perdida_pct") for m in metrics if m.get("perdida_pct") is not None]
                 avg_loss = round(sum(loss) / len(loss), 1) if loss else "—"
                 print(f"[{datetime.now().isoformat(timespec='seconds')}] muestra={completed + 1} saltos={len(metrics)} pérdida_media={avg_loss}%")
                 print(f"  draw.io: {paths['drawio']}")
-                if telemetry_result.get("sent"):
+                if isinstance(telemetry_result, dict) and telemetry_result.get("sent"):
                     print("  telemetría: evento enviado")
             except (OSError, RuntimeError, ValueError) as exc:
                 print(f"[{datetime.now().isoformat(timespec='seconds')}] muestra no disponible: {exc}")

@@ -48,6 +48,21 @@ class PathMonitorTests(unittest.TestCase):
             self.assertEqual(path.read_text(encoding="utf-8"), "previous")
             self.assertEqual(list(Path(directory).glob("*.tmp")), [])
 
+    def test_report_writer_ignores_malformed_optional_metrics(self):
+        topology = {
+            "ts": "2026-08-06T16:00:00",
+            "nodos": [],
+            "conexiones": [],
+            "trazas": [],
+            "resumen": {},
+            "monitorizacion": {"objetivo": "1.1.1.1", "saltos": [None, "invalid", {"host": "1.1.1.1", "perdida_pct": 0}]},
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            paths = write_live_reports(topology, Path(directory))
+            csv_lines = Path(paths["csv"]).read_text(encoding="utf-8").splitlines()
+            self.assertEqual(len(csv_lines), 2)  # encabezado + única métrica válida
+            self.assertIn("1.1.1.1", csv_lines[1])
+
     def test_monitor_adds_metrics_and_writes_live_drawio(self):
         topology = {
             "ts": "2026-08-06T16:00:00",

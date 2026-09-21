@@ -22,6 +22,10 @@ from core.telemetry import TelemetryClient
 from core.topology import REPORTS_DIR, build_topology, render_topology_drawio, render_topology_text
 
 
+_CSV_FIELDS = ("ts", "objetivo", "host", "perdida_pct", "promedio_ms", "alcanzable")
+_CSV_FIELDS_WITH_ERROR = _CSV_FIELDS + ("error",)
+
+
 def parse_ping_output(output: str) -> dict:
     """Extrae pérdida y latencia promedio de la salida EN/ES de ping.
 
@@ -171,6 +175,18 @@ def _validated_monitor_metrics(topology: dict) -> tuple[dict, list[dict]]:
     return monitor, [metric for metric in metrics if isinstance(metric, dict)]
 
 
+def _csv_fields_for(path: Path) -> tuple[str, ...]:
+    """Conserva el esquema de CSV existente y añade errores a archivos nuevos."""
+    if not path.exists():
+        return _CSV_FIELDS_WITH_ERROR
+    try:
+        with path.open("r", newline="", encoding="utf-8") as handle:
+            header = next(csv.reader(handle), [])
+    except (OSError, UnicodeError, csv.Error):
+        return _CSV_FIELDS_WITH_ERROR
+    return tuple(header) or _CSV_FIELDS_WITH_ERROR
+
+
 def write_live_reports(topology: dict, report_dir: Path | None = None) -> dict:
     """Actualiza archivos estables y añade una fila al historial 24/7."""
     directory = Path(report_dir or REPORTS_DIR)
@@ -189,13 +205,15 @@ def write_live_reports(topology: dict, report_dir: Path | None = None) -> dict:
         handle.write(json.dumps(topology, ensure_ascii=False) + "\n")
         _flush_and_sync(handle)
     csv_exists = paths["csv"].exists()
+    csv_fields = _csv_fields_for(paths["csv"])
     with paths["csv"].open("a", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=["ts", "objetivo", "host", "perdida_pct", "promedio_ms", "alcanzable"])
+        writer = csv.DictWriter(handle, fieldnames=csv_fields)
         if not csv_exists:
             writer.writeheader()
         monitor, metrics = _validated_monitor_metrics(topology)
         for metric in metrics:
-            writer.writerow({"ts": topology.get("ts", ""), "objetivo": monitor.get("objetivo", ""), **metric})
+            row = {"ts": topology.get("ts", ""), "objetivo": monitor.get("objetivo", ""), **metric}
+            writer.writerow({field: row.get(field, "") for field in csv_fields})
         _flush_and_sync(handle)
     return {key: str(path) for key, path in paths.items()}
 

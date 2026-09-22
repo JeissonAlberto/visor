@@ -78,6 +78,19 @@ class PathMonitorTests(unittest.TestCase):
             self.assertEqual(len(csv_lines), 2)  # encabezado + única métrica válida
             self.assertIn("1.1.1.1", csv_lines[1])
 
+    def test_monitor_ignores_malformed_traces_and_nodes(self):
+        topology = {
+            "trazas": [None, {"saltos": "invalid", "ip_destino": "1.1.1.1"}, "invalid"],
+            "nodos": [None, "invalid"],
+        }
+        result = monitor_once(
+            "1.1.1.1",
+            topology_fn=lambda **kwargs: topology,
+            probe_fn=lambda host, count: {"host": host, "perdida_pct": 0, "promedio_ms": 5.0, "alcanzable": True},
+        )
+        self.assertEqual(result["monitorizacion"]["saltos"][0]["host"], "1.1.1.1")
+        self.assertEqual(result["nodos"], [None, "invalid"])
+
     def test_monitor_adds_metrics_and_writes_live_drawio(self):
         topology = {
             "ts": "2026-08-06T16:00:00",

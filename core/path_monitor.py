@@ -96,12 +96,20 @@ def probe_host(host: str, count: int = 3, timeout_ms: int = 1000,
 
 
 def _path_hosts(topology: dict) -> list[str]:
+    """Extrae hosts de trazas parcialmente válidas sin abortar la muestra."""
     hosts: list[str] = []
-    for trace in topology.get("trazas", []):
-        for hop in trace.get("saltos", []):
-            host = hop.get("ip") if isinstance(hop, dict) else ""
-            if host and host not in hosts:
-                hosts.append(host)
+    traces = topology.get("trazas", []) if isinstance(topology, dict) else []
+    if not isinstance(traces, list):
+        return hosts
+    for trace in traces:
+        if not isinstance(trace, dict):
+            continue
+        hops = trace.get("saltos", [])
+        if isinstance(hops, list):
+            for hop in hops:
+                host = hop.get("ip") if isinstance(hop, dict) else ""
+                if host and host not in hosts:
+                    hosts.append(host)
         target = trace.get("ip_destino", "")
         if target and target not in hosts:
             hosts.append(target)
@@ -113,10 +121,17 @@ def monitor_once(host: str, ping_count: int = 3,
                  probe_fn: Callable | None = None) -> dict:
     """Genera una muestra de topología y añade métricas por salto."""
     topology = (topology_fn or build_topology)(trace_targets=[host], scan_ports=False)
+    if not isinstance(topology, dict):
+        topology = {}
     probe = probe_fn or probe_host
     metrics = [probe(path_host, ping_count) for path_host in _path_hosts(topology)]
-    by_host = {metric.get("host"): metric for metric in metrics}
-    for node in topology.get("nodos", []):
+    by_host = {metric.get("host"): metric for metric in metrics if isinstance(metric, dict)}
+    nodes = topology.get("nodos", [])
+    if not isinstance(nodes, list):
+        nodes = []
+    for node in nodes:
+        if not isinstance(node, dict):
+            continue
         metric = by_host.get(node.get("ip"))
         if not metric:
             continue

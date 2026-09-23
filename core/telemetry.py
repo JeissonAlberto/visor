@@ -87,6 +87,13 @@ def topology_event(topology: dict[str, Any], include_identifiers: bool = False) 
     return create_event("topology.path_sample", payload, observed_at=topology.get("ts"))
 
 
+class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Prevents configured endpoints from forwarding telemetry or bearer tokens."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
 def _endpoint_allowed(url: str) -> bool:
     """Valida el esquema y host antes de enviar telemetría.
 
@@ -134,7 +141,9 @@ class TelemetryClient:
             headers["Authorization"] = f"Bearer {self.token}"
         request = urllib.request.Request(self.url, data=body, headers=headers, method="POST")
         try:
-            opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+            opener = urllib.request.build_opener(
+                urllib.request.ProxyHandler({}), _NoRedirectHandler()
+            )
             with opener.open(request, timeout=self.timeout) as response:
                 return {"sent": True, "status": int(response.status)}
         except urllib.error.HTTPError as exc:

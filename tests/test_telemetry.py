@@ -2,7 +2,7 @@ import json
 import unittest
 from unittest.mock import Mock, patch
 
-from core.telemetry import TelemetryClient, create_event, topology_event
+from core.telemetry import TelemetryClient, _NoRedirectHandler, create_event, topology_event
 
 
 class TelemetryTests(unittest.TestCase):
@@ -29,12 +29,20 @@ class TelemetryTests(unittest.TestCase):
         response.__exit__ = Mock(return_value=None)
         opener = Mock()
         opener.open.return_value = response
-        with patch("core.telemetry.urllib.request.build_opener", return_value=opener):
+        with patch("core.telemetry.urllib.request.build_opener", return_value=opener) as build_opener:
             result = TelemetryClient(url="http://127.0.0.1:3049/events", token="test-token", enabled=True).send_event({"x": 1})
+        self.assertTrue(any(isinstance(handler, _NoRedirectHandler) for handler in build_opener.call_args.args))
         self.assertTrue(result["sent"])
         request = opener.open.call_args.args[0]
         self.assertEqual(json.loads(request.data), {"x": 1})
         self.assertEqual(request.headers["Authorization"], "Bearer test-token")
+
+    def test_redirects_are_not_followed(self):
+        handler = _NoRedirectHandler()
+        redirected = handler.redirect_request(
+            Mock(), Mock(), 302, "Found", {}, "https://other.example/events"
+        )
+        self.assertIsNone(redirected)
 
     def test_http_endpoint_requires_exact_local_hostname(self):
         opener = Mock()

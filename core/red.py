@@ -22,7 +22,16 @@ MAX_SCAN_WORKERS = 100
 def hacer_ping(host: str, count: int = 1, timeout: int = 2) -> tuple[bool, float | None]:
     """
     Hace ping a un host de forma robusta.
+
+    Rechaza destinos vacíos o con prefijo de opción para evitar que un valor
+    de configuración se interprete como argumentos adicionales del comando.
     """
+    if not isinstance(host, str) or not host.strip():
+        return False, None
+    host = host.strip()
+    if host.startswith(("-", "/")):
+        return False, None
+
     sistema = platform.system().lower()
     if sistema == "windows":
         # -n paquetes, -w espera en ms

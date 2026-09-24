@@ -6,6 +6,12 @@ from core.red import MAX_SCAN_HOSTS, escanear_rango, hacer_ping
 
 
 class RangeScanTests(unittest.TestCase):
+    def test_ping_rejects_option_like_destinations_before_running_command(self):
+        for host in ("-f", "/t", "", "   ", None):
+            with self.subTest(host=host), patch("core.red.subprocess.run") as run:
+                self.assertEqual(hacer_ping(host), (False, None))
+            run.assert_not_called()
+
     def test_ping_returns_offline_when_system_command_is_unavailable(self):
         with patch("core.red.subprocess.run", side_effect=OSError("missing ping")):
             self.assertEqual(hacer_ping("192.0.2.1"), (False, None))

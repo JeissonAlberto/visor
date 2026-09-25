@@ -180,9 +180,16 @@ def traceroute(target: str, max_hops: int = 20) -> list:
     Ejecuta un traceroute y retorna saltos con IP, hostname y latencia.
 
     Raises:
-        ValueError: si ``max_hops`` no está entre 1 y ``MAX_TRACE_HOPS``.
+        ValueError: si el destino parece una opción del comando o si ``max_hops``
+            no está entre 1 y ``MAX_TRACE_HOPS``.
     """
     max_hops = _validar_max_hops(max_hops)
+    if not isinstance(target, str) or not target.strip():
+        raise ValueError("target debe ser un host o una IP no vacíos")
+    target = target.strip()
+    if target.startswith(("-", "/")):
+        raise ValueError("target no puede comenzar con un prefijo de opción")
+
     sistema = platform.system().lower()
     saltos = []
 

@@ -49,6 +49,14 @@ def _watch_cycles(value: str) -> int:
     return cycles
 
 
+def _traceroute_target(value: str) -> str:
+    """Rechaza destinos que podrían interpretarse como opciones de tracert."""
+    target = value.strip()
+    if not target or target.startswith(("-", "/")):
+        raise argparse.ArgumentTypeError("el destino debe ser una IP o host, no una opción")
+    return target
+
+
 def parse_args():
     parser = argparse.ArgumentParser(
         prog="visor",
@@ -67,7 +75,7 @@ def parse_args():
     parser.add_argument("--hunt",       metavar="HOST",       help="Threat Hunting sobre un host específico")
     parser.add_argument("--noc",        action="store_true",  help="Misión NOC Completa (todos los agentes)")
     parser.add_argument("--health",     action="store_true",  help="Diagnóstico de calidad de red multi-capa")
-    parser.add_argument("--traceroute", metavar="HOST",       help="Traceroute con latencia por salto")
+    parser.add_argument("--traceroute", type=_traceroute_target, metavar="HOST", help="Traceroute con latencia por salto")
     parser.add_argument("--topology", nargs="?", const="8.8.8.8", metavar="HOST", help="Mapea LAN y ruta L3 verificada hacia HOST")
     parser.add_argument("--infra-check", nargs="?", const="8.8.8.8", metavar="HOST", help="Revisión L3 observacional mediante el orquestador NOC")
     parser.add_argument("--topology-watch", nargs="?", const="8.8.8.8", metavar="HOST", help="Monitor continuo de ruta estilo PingPlotter")

@@ -22,6 +22,13 @@ class HealthTests(unittest.TestCase):
         self.assertEqual(result["estado"], "OFFLINE")
         self.assertEqual(result["loss"], 100)
 
+    def test_traceroute_rejects_option_like_or_empty_targets_before_running_command(self):
+        for target in ("-I", "/d", "", "   ", None):
+            with self.subTest(target=target), patch("core.health.subprocess.run") as run:
+                with self.assertRaises(ValueError):
+                    traceroute(target)
+            run.assert_not_called()
+
     def test_traceroute_rejects_oversized_hop_limit_before_running_command(self):
         with patch("core.health.subprocess.run") as run:
             with self.assertRaises(ValueError):

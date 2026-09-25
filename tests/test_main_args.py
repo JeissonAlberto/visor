@@ -18,6 +18,16 @@ class MainArgumentTests(unittest.TestCase):
         self.assertEqual(args.watch_interval, 10)
         self.assertEqual(args.watch_cycles, 2)
 
+    def test_traceroute_target_rejects_option_like_values(self):
+        with contextlib.redirect_stderr(io.StringIO()):
+            with self.assertRaises(SystemExit) as raised:
+                self._parse("--traceroute=-I")
+        self.assertEqual(raised.exception.code, 2)
+
+    def test_traceroute_target_is_trimmed(self):
+        args = self._parse("--traceroute", " 192.0.2.1 ")
+        self.assertEqual(args.traceroute, "192.0.2.1")
+
     def test_infra_check_accepts_optional_target(self):
         default = self._parse("--infra-check")
         explicit = self._parse("--infra-check", "192.0.2.1")

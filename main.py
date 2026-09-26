@@ -49,8 +49,8 @@ def _watch_cycles(value: str) -> int:
     return cycles
 
 
-def _traceroute_target(value: str) -> str:
-    """Rechaza destinos que podrían interpretarse como opciones de tracert."""
+def _network_target(value: str) -> str:
+    """Rechaza destinos vacíos o que podrían interpretarse como opciones."""
     target = value.strip()
     if not target or target.startswith(("-", "/")):
         raise argparse.ArgumentTypeError("el destino debe ser una IP o host, no una opción")
@@ -72,13 +72,13 @@ def parse_args():
     parser.add_argument("--report",     action="store_true",  help="Ver último reporte guardado")
     parser.add_argument("--connect",    action="store_true",  help="Conectar con infraestructura (MikroTik/Proxmox)")
     parser.add_argument("--lan",        action="store_true",  help="Descubrimiento LAN completo")
-    parser.add_argument("--hunt",       metavar="HOST",       help="Threat Hunting sobre un host específico")
+    parser.add_argument("--hunt",       type=_network_target, metavar="HOST", help="Threat Hunting sobre un host específico")
     parser.add_argument("--noc",        action="store_true",  help="Misión NOC Completa (todos los agentes)")
     parser.add_argument("--health",     action="store_true",  help="Diagnóstico de calidad de red multi-capa")
-    parser.add_argument("--traceroute", type=_traceroute_target, metavar="HOST", help="Traceroute con latencia por salto")
-    parser.add_argument("--topology", nargs="?", const="8.8.8.8", metavar="HOST", help="Mapea LAN y ruta L3 verificada hacia HOST")
-    parser.add_argument("--infra-check", nargs="?", const="8.8.8.8", metavar="HOST", help="Revisión L3 observacional mediante el orquestador NOC")
-    parser.add_argument("--topology-watch", nargs="?", const="8.8.8.8", metavar="HOST", help="Monitor continuo de ruta estilo PingPlotter")
+    parser.add_argument("--traceroute", type=_network_target, metavar="HOST", help="Traceroute con latencia por salto")
+    parser.add_argument("--topology", nargs="?", type=_network_target, const="8.8.8.8", metavar="HOST", help="Mapea LAN y ruta L3 verificada hacia HOST")
+    parser.add_argument("--infra-check", nargs="?", type=_network_target, const="8.8.8.8", metavar="HOST", help="Revisión L3 observacional mediante el orquestador NOC")
+    parser.add_argument("--topology-watch", nargs="?", type=_network_target, const="8.8.8.8", metavar="HOST", help="Monitor continuo de ruta estilo PingPlotter")
     parser.add_argument("--watch-interval", type=_watch_interval, default=60, metavar="SEG", help="Intervalo de --watch y --topology-watch (mínimo 10 s)")
     parser.add_argument("--watch-cycles", type=_watch_cycles, default=0, metavar="N", help="Muestras de --topology-watch; 0 mantiene ese monitor activo")
     parser.add_argument("--version",    action="store_true",  help="Versión de Visor")

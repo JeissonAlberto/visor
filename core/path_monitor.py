@@ -73,6 +73,15 @@ def parse_ping_output(output: str) -> dict:
 def probe_host(host: str, count: int = 3, timeout_ms: int = 1000,
                run_fn: Callable | None = None) -> dict:
     """Realiza una muestra ICMP sin usar shell ni exponer comandos arbitrarios."""
+    if not isinstance(host, str) or not host.strip() or host.strip().startswith(("-", "/")):
+        return {
+            "host": host,
+            "perdida_pct": 100,
+            "promedio_ms": None,
+            "alcanzable": False,
+            "error": "destino ICMP vacío o inválido",
+        }
+    host = host.strip()
     count = max(1, min(int(count), 10))
     timeout_ms = max(250, min(int(timeout_ms), 5000))
     if run_fn is None:

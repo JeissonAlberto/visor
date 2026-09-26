@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from core.path_monitor import _atomic_write_text, monitor_once, parse_ping_output, write_live_reports
+from core.path_monitor import _atomic_write_text, monitor_once, parse_ping_output, probe_host, write_live_reports
 
 
 class PathMonitorTests(unittest.TestCase):
@@ -30,6 +30,20 @@ class PathMonitorTests(unittest.TestCase):
         self.assertEqual(metric["perdida_pct"], 0)
         self.assertEqual(metric["promedio_ms"], 2.345)
         self.assertTrue(metric["alcanzable"])
+
+    def test_probe_rejects_option_like_or_empty_hosts_without_calling_ping(self):
+        custom_calls = []
+        custom_probe = lambda host, count, timeout_ms: custom_calls.append(host)
+        for host in ("-f", "/t", "", "   ", None):
+            with self.subTest(host=host), patch("core.path_monitor.subprocess.run") as run:
+                metric = probe_host(host)
+                custom_metric = probe_host(host, run_fn=custom_probe)
+            self.assertFalse(metric["alcanzable"])
+            self.assertEqual(metric["perdida_pct"], 100)
+            self.assertEqual(metric["error"], "destino ICMP vacío o inválido")
+            self.assertEqual(custom_metric, metric)
+            run.assert_not_called()
+        self.assertEqual(custom_calls, [])
 
     def test_parses_fractional_loss_and_reachability(self):
         output = "10 packets transmitted, 9 received, 10.0% packet loss\nrtt min/avg/max/mdev = 1/5/9/1 ms"

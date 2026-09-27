@@ -214,12 +214,12 @@ def detectar_gateway() -> str | None:
     sistema = platform.system().lower()
     try:
         if sistema == "windows":
-            r = subprocess.run(["ipconfig"], capture_output=True, text=True)
+            r = subprocess.run(["ipconfig"], capture_output=True, text=True, timeout=5)
             m = re.search(r"Puerta de enlace.*?:\s*([\d.]+)", r.stdout, re.IGNORECASE)
             if not m:
                 m = re.search(r"Default Gateway.*?:\s*([\d.]+)", r.stdout, re.IGNORECASE)
         else:
-            r = subprocess.run(["ip", "route"], capture_output=True, text=True)
+            r = subprocess.run(["ip", "route"], capture_output=True, text=True, timeout=5)
             m = re.search(r"default via ([\d.]+)", r.stdout)
         return m.group(1) if m else None
     except (OSError, subprocess.SubprocessError):

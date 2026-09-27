@@ -1,8 +1,9 @@
 import socket
+import subprocess
 import unittest
 from unittest.mock import patch
 
-from core.red import MAX_SCAN_HOSTS, escanear_rango, hacer_ping
+from core.red import MAX_SCAN_HOSTS, detectar_gateway, escanear_rango, hacer_ping
 
 
 class RangeScanTests(unittest.TestCase):
@@ -15,6 +16,27 @@ class RangeScanTests(unittest.TestCase):
     def test_ping_returns_offline_when_system_command_is_unavailable(self):
         with patch("core.red.subprocess.run", side_effect=OSError("missing ping")):
             self.assertEqual(hacer_ping("192.0.2.1"), (False, None))
+
+    def test_gateway_detection_commands_have_a_five_second_timeout(self):
+        cases = (
+            ("Windows", ["ipconfig"], "Default Gateway . . . : 192.0.2.1", "192.0.2.1"),
+            ("Linux", ["ip", "route"], "default via 192.0.2.254 dev eth0", "192.0.2.254"),
+        )
+        for system, command, output, expected_gateway in cases:
+            with self.subTest(system=system), patch("core.red.platform.system", return_value=system), patch(
+                "core.red.subprocess.run",
+                return_value=subprocess.CompletedProcess(command, 0, stdout=output, stderr=""),
+            ) as run:
+                self.assertEqual(detectar_gateway(), expected_gateway)
+            run.assert_called_once_with(command, capture_output=True, text=True, timeout=5)
+
+    def test_gateway_detection_returns_none_when_command_times_out(self):
+        with patch("core.red.platform.system", return_value="Linux"), patch(
+            "core.red.subprocess.run",
+            side_effect=subprocess.TimeoutExpired(["ip", "route"], 5),
+        ) as run:
+            self.assertIsNone(detectar_gateway())
+        run.assert_called_once_with(["ip", "route"], capture_output=True, text=True, timeout=5)
 
     def test_rejects_oversized_range_before_network_probes(self):
         with patch("core.red.hacer_ping") as ping:

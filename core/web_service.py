@@ -117,17 +117,15 @@ def verificar_url(url: str, timeout: int = 5) -> dict:
     # 1. Medir latencia de red pura (TCP Handshake) - similar al ping
     sock = None
     try:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(timeout)
         t_sock = time.monotonic()
-        sock.connect((host, port))
+        # create_connection elige IPv4 o IPv6 según la resolución del host.
+        sock = socket.create_connection((host, port), timeout=timeout)
         t_red  = round((time.monotonic() - t_sock) * 1000, 1)
     except OSError:
         # Fallos de DNS, conexión o timeout son estados normales del escaneo.
         pass
     finally:
-        # También cerrar el socket cuando connect() falla; de lo contrario
-        # los escaneos repetidos pueden agotar descriptores del proceso.
+        # Cerrar también el socket cuando el resto de la comprobación web falla.
         if sock is not None:
             sock.close()
 

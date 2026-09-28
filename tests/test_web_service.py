@@ -30,18 +30,18 @@ class WebServiceTests(unittest.TestCase):
 
     def test_failed_tcp_connect_closes_socket(self):
         sock = Mock()
-        sock.connect.side_effect = OSError("connection refused")
-        with patch("core.web_service.socket.socket", return_value=sock), patch(
+        with patch("core.web_service.socket.create_connection", return_value=sock) as connect, patch(
             "core.web_service.urllib.request.urlopen",
             side_effect=URLError("web unavailable"),
         ):
             result = verificar_url("http://example.test", timeout=1)
 
         self.assertFalse(result["online"])
+        connect.assert_called_once_with(("example.test", 80), timeout=1)
         sock.close.assert_called_once_with()
 
     def test_malformed_url_returns_result_without_network_request(self):
-        with patch("core.web_service.socket.socket") as socket_factory, patch(
+        with patch("core.web_service.socket.create_connection") as connect, patch(
             "core.web_service.urllib.request.urlopen"
         ) as urlopen:
             result = verificar_url("https://example.test:not-a-port")
@@ -50,18 +50,18 @@ class WebServiceTests(unittest.TestCase):
         self.assertEqual(result["estado"], "DOWN")
         self.assertIsNone(result["latencia"])
         self.assertIn("URL inválida", result["error"])
-        socket_factory.assert_not_called()
+        connect.assert_not_called()
         urlopen.assert_not_called()
 
     def test_unsupported_scheme_returns_result_without_network_request(self):
-        with patch("core.web_service.socket.socket") as socket_factory, patch(
+        with patch("core.web_service.socket.create_connection") as connect, patch(
             "core.web_service.urllib.request.urlopen"
         ) as urlopen:
             result = verificar_url("ftp://example.test/file")
 
         self.assertFalse(result["online"])
         self.assertIn("http(s)", result["error"])
-        socket_factory.assert_not_called()
+        connect.assert_not_called()
         urlopen.assert_not_called()
 
     def test_https_context_verifies_certificate_chain(self):
@@ -81,7 +81,7 @@ class WebServiceTests(unittest.TestCase):
         response = Mock(status=200)
         response.__enter__ = Mock(return_value=response)
         response.__exit__ = Mock(return_value=None)
-        with patch("core.web_service.socket.socket") as socket_factory, patch(
+        with patch("core.web_service.socket.create_connection") as connect, patch(
             "core.web_service.urllib.request.urlopen", return_value=response
         ) as urlopen:
             result = verificar_url("https://example.test")
@@ -89,10 +89,24 @@ class WebServiceTests(unittest.TestCase):
         self.assertTrue(result["online"])
         context = urlopen.call_args.kwargs["context"]
         self.assertTrue(context.check_hostname)
-        socket_factory.return_value.connect.assert_called_once_with(("example.test", 443))
+        connect.assert_called_once_with(("example.test", 443), timeout=5)
+
+    def test_ipv6_url_uses_dual_stack_tcp_connection(self):
+        response = Mock(status=200)
+        response.__enter__ = Mock(return_value=response)
+        response.__exit__ = Mock(return_value=None)
+        sock = Mock()
+        with patch("core.web_service.socket.create_connection", return_value=sock) as connect, patch(
+            "core.web_service.urllib.request.urlopen", return_value=response
+        ):
+            result = verificar_url("http://[2001:db8::1]")
+
+        self.assertTrue(result["online"])
+        connect.assert_called_once_with(("2001:db8::1", 80), timeout=5)
+        sock.close.assert_called_once_with()
 
     def test_unexpected_http_error_is_not_hidden(self):
-        with patch("core.web_service.socket.socket"), patch(
+        with patch("core.web_service.socket.create_connection"), patch(
             "core.web_service.urllib.request.urlopen",
             side_effect=RuntimeError("unexpected test failure"),
         ):

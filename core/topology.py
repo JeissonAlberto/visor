@@ -234,6 +234,10 @@ def build_topology(
         wifi_data = {}
         wifi_error = "El proveedor de telemetría Wi-Fi devolvió un formato inválido."
     wifi_data.setdefault("local", local_wifi)
+    # Propagate a sanitized status from the optional AP query; never include
+    # its raw exception text in reports.
+    if isinstance(wifi_data.get("advertencia"), str) and wifi_data["advertencia"] and not wifi_error:
+        wifi_error = "No se pudo consultar la tabla de asociaciones Wi-Fi opcional."
     raw_wifi_clients = wifi_data.get("clientes", [])
     if isinstance(raw_wifi_clients, list):
         wifi_clients = [client for client in raw_wifi_clients if isinstance(client, dict)]

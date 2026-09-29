@@ -126,23 +126,34 @@ def mikrotik_wifi_clients(host: str | None = None, user: str | None = None,
         ("routeros_wifi", ':foreach i in=[/interface wifi registration-table find] do={:put ([/interface wifi registration-table get $i mac-address]."|".[/interface wifi registration-table get $i interface]."|".[/interface wifi registration-table get $i signal]."|".[/interface wifi registration-table get $i tx-rate]."|".[/interface wifi registration-table get $i rx-rate]."|".[/interface wifi registration-table get $i uptime])}'),
     ]
     clients = []
+    failed_commands = 0
     for source, command in commands:
         try:
             raw = ssh(router, username, secret, command, timeout=5)
         except Exception:
-            raw = ""
+            # No exponer el texto de la excepción: podría contener datos sensibles.
+            failed_commands += 1
+            continue
+        if not isinstance(raw, str) or raw.strip().upper().startswith("ERROR:"):
+            failed_commands += 1
+            continue
         clients.extend(_parse_registration_table(raw, source))
 
     unique = {}
     for client in clients:
         unique[_mac(client["mac"])] = client
-    return {
+    result = {
         "disponible": bool(unique),
         "fuente": "mikrotik_registration_table",
         "router": router,
         "clientes": list(unique.values()),
         "motivo": "" if unique else "No se encontraron asociaciones activas o el modelo no expone registration-table.",
     }
+    # Distinguish a confirmed empty table from a failed query in the topology
+    # report without forwarding error text that could contain credentials.
+    if not unique and failed_commands == len(commands):
+        result["advertencia"] = "No se pudo consultar la tabla de asociaciones Wi-Fi."
+    return result
 
 
 def annotate_wifi_nodes(nodes: list[dict], wifi_data: dict) -> list[dict]:

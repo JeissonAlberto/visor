@@ -161,6 +161,27 @@ class TopologyTests(unittest.TestCase):
     @patch("core.topology.local_wifi_context", return_value={})
     @patch("core.topology.detectar_gateway", return_value="")
     @patch("core.topology._local_ip", return_value="192.168.1.10")
+    def test_wifi_query_warning_is_sanitized_and_added_to_report(self, _local, _gateway, _wifi):
+        result = build_topology(
+            trace_targets=[],
+            discover_fn=lambda **kwargs: [],
+            traceroute_fn=lambda target: [],
+            ping_fn=self.ping,
+            wifi_provider=lambda: {
+                "clientes": [],
+                "advertencia": "credential=do-not-leak",
+            },
+        )
+
+        self.assertIn(
+            "No se pudo consultar la tabla de asociaciones Wi-Fi opcional.",
+            result["advertencias"],
+        )
+        self.assertNotIn("do-not-leak", str(result["advertencias"]))
+
+    @patch("core.topology.local_wifi_context", return_value={})
+    @patch("core.topology.detectar_gateway", return_value="")
+    @patch("core.topology._local_ip", return_value="192.168.1.10")
     def test_discovery_failure_after_legacy_fallback_does_not_abort_report(self, _local, _gateway, _wifi):
         def failing_discovery(*args, **kwargs):
             if kwargs:

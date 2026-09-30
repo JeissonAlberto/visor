@@ -53,6 +53,32 @@ class WebServiceTests(unittest.TestCase):
         connect.assert_not_called()
         urlopen.assert_not_called()
 
+    def test_invalid_timeouts_return_a_stable_error_without_network_request(self):
+        for timeout in (0, -1, "bad", None, True, float("inf"), 60.1):
+            with self.subTest(timeout=timeout), patch(
+                "core.web_service.socket.create_connection"
+            ) as connect, patch("core.web_service.urllib.request.urlopen") as urlopen:
+                result = verificar_url("http://example.test", timeout=timeout)
+
+            self.assertFalse(result["online"])
+            self.assertIsNone(result["latencia"])
+            self.assertIn("Timeout inválido", result["error"])
+            connect.assert_not_called()
+            urlopen.assert_not_called()
+
+    def test_fractional_timeout_is_supported(self):
+        response = Mock(status=200)
+        response.__enter__ = Mock(return_value=response)
+        response.__exit__ = Mock(return_value=None)
+        with patch("core.web_service.socket.create_connection") as connect, patch(
+            "core.web_service.urllib.request.urlopen", return_value=response
+        ) as urlopen:
+            result = verificar_url("http://example.test", timeout=0.5)
+
+        self.assertTrue(result["online"])
+        connect.assert_called_once_with(("example.test", 80), timeout=0.5)
+        self.assertEqual(urlopen.call_args.kwargs["timeout"], 0.5)
+
     def test_unsupported_scheme_returns_result_without_network_request(self):
         with patch("core.web_service.socket.create_connection") as connect, patch(
             "core.web_service.urllib.request.urlopen"

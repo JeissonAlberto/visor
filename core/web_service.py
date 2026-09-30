@@ -9,6 +9,7 @@ import ssl
 import time
 import json
 import ipaddress
+import math
 from config.device import SERVICIOS_WEB
 
 
@@ -61,8 +62,11 @@ SERVICIOS_BUILTIN = {
 # ── Verificación HTTP ─────────────────────────────────────────────────────
 
 
-def _resultado_url_invalida(url: object, motivo: str) -> dict:
-    """Devuelve un resultado estable para no abortar un escaneo por configuración inválida."""
+MAX_VERIFICATION_TIMEOUT = 60.0
+
+
+def _resultado_error(url: object, motivo: str) -> dict:
+    """Devuelve un resultado estable para errores de entrada sin abortar el escaneo."""
     return {
         "url": str(url or ""),
         "online": False,
@@ -72,6 +76,13 @@ def _resultado_url_invalida(url: object, motivo: str) -> dict:
         "lat_red": None,
         "error": motivo,
     }
+
+
+def _resultado_timeout_invalido(url: object) -> dict:
+    return _resultado_error(
+        url,
+        f"Timeout inválido: usa un número mayor que 0 y hasta {MAX_VERIFICATION_TIMEOUT:g} segundos",
+    )
 
 
 # Contextos SSL globales para reutilización y ahorro de overhead. Las URLs
@@ -96,20 +107,29 @@ def _ssl_ctx(check_hostname: bool = False):
     return context
 
 
-def verificar_url(url: str, timeout: int = 5) -> dict:
-    """
-    Verifica una URL optimizando para medir tanto latencia de red (TCP) como 
-    tiempo de respuesta web (TTFB). Usa el método HEAD para mayor velocidad.
+def verificar_url(url: str, timeout: float = 5) -> dict:
+    """Mide latencia TCP y tiempo de respuesta web (TTFB) mediante HEAD.
+
+    ``timeout`` debe ser finito, positivo y no superar 60 segundos; así, una
+    entrada inválida o accidental no inicia comprobaciones sin límite.
     """
     from urllib.parse import urlparse
+    if isinstance(timeout, bool):
+        return _resultado_timeout_invalido(url)
+    try:
+        timeout = float(timeout)
+    except (TypeError, ValueError, OverflowError):
+        return _resultado_timeout_invalido(url)
+    if not math.isfinite(timeout) or timeout <= 0 or timeout > MAX_VERIFICATION_TIMEOUT:
+        return _resultado_timeout_invalido(url)
     try:
         parsed = urlparse(url)
         host = parsed.hostname
         port = parsed.port or (443 if parsed.scheme == "https" else 80)
     except (TypeError, ValueError):
-        return _resultado_url_invalida(url, "URL inválida")
+        return _resultado_error(url, "URL inválida")
     if parsed.scheme not in {"http", "https"} or not host:
-        return _resultado_url_invalida(url, "URL inválida: se requiere http(s) y un host")
+        return _resultado_error(url, "URL inválida: se requiere http(s) y un host")
 
     t_red = None
     t0    = time.monotonic()
@@ -219,7 +239,7 @@ def escanear_servicios_web(servicios: list | None = None) -> list:
         if raw_url is None or (isinstance(raw_url, str) and not raw_url.strip()):
             continue
         if not isinstance(raw_url, str):
-            r = _resultado_url_invalida(raw_url, "URL inválida")
+            r = _resultado_error(raw_url, "URL inválida")
         else:
             url = raw_url.strip()
             r = verificar_url(url)

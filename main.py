@@ -27,14 +27,21 @@ from ui.menu import menu_principal
 from ui.setup_wizard import setup_wizard
 
 
+MAX_WATCH_INTERVAL_SECONDS = 86_400
+
+
 def _watch_interval(value: str) -> int:
-    """Valida el intervalo del monitor antes de iniciar tráfico de red."""
+    """Valida un intervalo práctico antes de iniciar tráfico de red o esperar."""
     try:
         seconds = int(value)
     except (TypeError, ValueError) as exc:
         raise argparse.ArgumentTypeError("el intervalo debe ser un entero") from exc
     if seconds < 10:
         raise argparse.ArgumentTypeError("el intervalo mínimo es 10 segundos")
+    if seconds > MAX_WATCH_INTERVAL_SECONDS:
+        raise argparse.ArgumentTypeError(
+            f"el intervalo máximo es {MAX_WATCH_INTERVAL_SECONDS} segundos (24 horas)"
+        )
     return seconds
 
 
@@ -79,7 +86,7 @@ def parse_args():
     parser.add_argument("--topology", nargs="?", type=_network_target, const="8.8.8.8", metavar="HOST", help="Mapea LAN y ruta L3 verificada hacia HOST")
     parser.add_argument("--infra-check", nargs="?", type=_network_target, const="8.8.8.8", metavar="HOST", help="Revisión L3 observacional mediante el orquestador NOC")
     parser.add_argument("--topology-watch", nargs="?", type=_network_target, const="8.8.8.8", metavar="HOST", help="Monitor continuo de ruta estilo PingPlotter")
-    parser.add_argument("--watch-interval", type=_watch_interval, default=60, metavar="SEG", help="Intervalo de --watch y --topology-watch (mínimo 10 s)")
+    parser.add_argument("--watch-interval", type=_watch_interval, default=60, metavar="SEG", help="Intervalo de --watch y --topology-watch (10–86400 s)")
     parser.add_argument("--watch-cycles", type=_watch_cycles, default=0, metavar="N", help="Muestras de --topology-watch; 0 mantiene ese monitor activo")
     parser.add_argument("--version",    action="store_true",  help="Versión de Visor")
     return parser.parse_args()

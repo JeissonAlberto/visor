@@ -63,6 +63,15 @@ class MainArgumentTests(unittest.TestCase):
                 self._parse("--watch-interval", "9")
         self.assertEqual(raised.exception.code, 2)
 
+    def test_watch_interval_accepts_daily_limit_and_rejects_larger_values(self):
+        args = self._parse("--watch-interval", "86400")
+        self.assertEqual(args.watch_interval, 86400)
+
+        with contextlib.redirect_stderr(io.StringIO()):
+            with self.assertRaises(SystemExit) as raised:
+                self._parse("--watch-interval", "86401")
+        self.assertEqual(raised.exception.code, 2)
+
     def test_watch_cycles_rejects_negative_values(self):
         with contextlib.redirect_stderr(io.StringIO()):
             with self.assertRaises(SystemExit) as raised:

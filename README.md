@@ -254,8 +254,10 @@ solo toma muestras ICMP y actualiza los archivos vivos en `reports/`.
 python .\main.py --topology-watch 8.8.8.8 --watch-interval 60
 ```
 
-`--watch-interval` está expresado en segundos y `--watch-cycles N` permite
-limitar el número de muestras. Con `--watch-cycles 0` permanece activo hasta
+`--watch-interval` está expresado en segundos y acepta de 10 a 86.400 segundos
+(24 horas), evitando intervalos accidentales que puedan exceder los límites de
+espera del sistema. `--watch-cycles N` permite limitar el número de muestras.
+Con `--watch-cycles 0` permanece activo hasta
 presionar `Ctrl+C`. Se actualizan `topology_live.drawio`, `topology_live.json`,
 `topology_live.txt`, además del historial JSONL y CSV. El draw.io incluye el
 promedio ICMP y porcentaje de pérdida por salto.

@@ -6,7 +6,7 @@ Mejoras v5.1:
   - 6 tipos de misión (Security, LAN, Health, Infra, Full-NOC, Quick)
   - Barra de progreso en tiempo real
   - Reporte unificado con score global
-  - Timeout por agente (ninguno bloquea el orquestador)
+  - Aviso de timeout por agente y errores mostrados sin detalles potencialmente sensibles
   - Guardado automático de reporte en /reports
 """
 
@@ -37,12 +37,12 @@ MISSION_TYPES = {
 # ── Utilidades ────────────────────────────────────────────────────────────
 
 def _spinner_task(label: str, future: concurrent.futures.Future, timeout: int = 120):
-    """Espera un future mostrando spinner. Retorna el resultado o None si hay timeout."""
+    """Espera un future mostrando progreso; omite el texto de errores sensibles."""
     chars = ["⠋","⠙","⠹","⠸","⠼","⠴","⠦","⠧","⠇","⠏"]
     i = 0
-    start = time.time()
+    start = time.monotonic()
     while not future.done():
-        elapsed = time.time() - start
+        elapsed = time.monotonic() - start
         if elapsed > timeout:
             future.cancel()
             print(f"\r  {label}: ⚠️  TIMEOUT ({timeout}s)          ")
@@ -50,11 +50,13 @@ def _spinner_task(label: str, future: concurrent.futures.Future, timeout: int = 
         print(f"\r  {label}: {chars[i % len(chars)]} {elapsed:.0f}s", end="", flush=True)
         i += 1
         time.sleep(0.15)
-    print(f"\r  {label}: ✅ completado ({time.time()-start:.1f}s)          ")
+    elapsed = time.monotonic() - start
+    print(f"\r  {label}: ✅ completado ({elapsed:.1f}s)          ")
     try:
         return future.result()
-    except Exception as e:
-        print(f"  {label}: ❌ error — {e}")
+    except Exception as exc:
+        # Excepciones de agentes pueden incluir URLs, comandos u otros datos sensibles.
+        print(f"  {label}: ❌ error — {type(exc).__name__} (detalle omitido)")
         return None
 
 

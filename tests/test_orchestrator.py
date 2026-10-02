@@ -1,7 +1,38 @@
+import contextlib
+import io
 import unittest
+from concurrent.futures import Future
 from unittest.mock import patch
 
-from core.orchestrator import MissionOrchestrator
+from core.orchestrator import MissionOrchestrator, _spinner_task
+
+
+class SpinnerTaskTests(unittest.TestCase):
+    def test_worker_exception_does_not_print_sensitive_exception_text(self):
+        future = Future()
+        future.set_exception(RuntimeError("api_key=do-not-leak"))
+        output = io.StringIO()
+
+        with patch("core.orchestrator.time.time", side_effect=AssertionError("wall clock used")):
+            with contextlib.redirect_stdout(output):
+                result = _spinner_task("agent", future, timeout=1)
+
+        self.assertIsNone(result)
+        self.assertIn("RuntimeError (detalle omitido)", output.getvalue())
+        self.assertNotIn("do-not-leak", output.getvalue())
+
+    def test_timeout_uses_monotonic_clock_and_cancels_pending_future(self):
+        future = Future()
+        output = io.StringIO()
+
+        with patch("core.orchestrator.time.monotonic", side_effect=[100.0, 102.0]):
+            with patch("core.orchestrator.time.time", side_effect=AssertionError("wall clock used")):
+                with contextlib.redirect_stdout(output):
+                    result = _spinner_task("agent", future, timeout=1)
+
+        self.assertIsNone(result)
+        self.assertTrue(future.cancelled())
+        self.assertIn("TIMEOUT (1s)", output.getvalue())
 
 
 class OrchestratorInfraTests(unittest.TestCase):

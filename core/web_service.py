@@ -85,6 +85,24 @@ def _resultado_timeout_invalido(url: object) -> dict:
     )
 
 
+def _mensaje_error_web_seguro(error: Exception) -> str:
+    """Resume fallos de red sin incluir texto libre de excepciones externas."""
+    if isinstance(error, urllib.error.URLError):
+        reason = error.reason
+        if isinstance(reason, (TimeoutError, socket.timeout)):
+            return "Tiempo de espera agotado"
+        if isinstance(reason, socket.gaierror):
+            return "Error de resolución DNS"
+        return "Error de conexión"
+    if isinstance(error, (TimeoutError, socket.timeout)):
+        return "Tiempo de espera agotado"
+    if isinstance(error, socket.gaierror):
+        return "Error de resolución DNS"
+    if isinstance(error, OSError):
+        return "Error de red"
+    return "Respuesta inválida"
+
+
 # Contextos SSL globales para reutilización y ahorro de overhead. Las URLs
 # con un host DNS pueden validar también la identidad; las URLs con IP suelen
 # usar certificados cuyo nombre no coincide con la dirección literal.
@@ -205,7 +223,7 @@ def verificar_url(url: str, timeout: float = 5) -> dict:
             "http":     e.code,
             "latencia": lat_web,
             "lat_red":  t_red,
-            "error":    str(e.reason),
+            "error":    f"HTTP {e.code}",
         }
     except (urllib.error.URLError, OSError, ValueError) as e:
         lat_web = round((time.monotonic() - t0) * 1000, 1)
@@ -216,7 +234,7 @@ def verificar_url(url: str, timeout: float = 5) -> dict:
             "http":     None,
             "latencia": lat_web,
             "lat_red":  t_red,
-            "error":    str(e)[:80],
+            "error":    _mensaje_error_web_seguro(e),
         }
 
 

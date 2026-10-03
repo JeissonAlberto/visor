@@ -1,7 +1,7 @@
 import ssl
 import unittest
 from unittest.mock import Mock, patch
-from urllib.error import URLError
+from urllib.error import HTTPError, URLError
 
 import core.web_service as web_service
 from core.web_service import (
@@ -27,6 +27,31 @@ class WebServiceTests(unittest.TestCase):
         self.assertTrue(result["privada"])
         self.assertIn("sin geolocalización", result["info"])
         urlopen.assert_not_called()
+
+    def test_probe_error_message_omits_untrusted_exception_text(self):
+        secret = "authorization=bearer-do-not-leak"
+        with patch("core.web_service.socket.create_connection"), patch(
+            "core.web_service.urllib.request.urlopen", side_effect=URLError(secret)
+        ):
+            result = verificar_url("https://example.test")
+
+        self.assertFalse(result["online"])
+        self.assertEqual(result["error"], "Error de conexión")
+        self.assertNotIn(secret, result["error"])
+
+    def test_http_error_message_uses_status_not_remote_reason(self):
+        secret = "authorization=bearer-do-not-leak"
+        error = HTTPError(
+            "https://example.test", 500, secret, hdrs=None, fp=None
+        )
+        with patch("core.web_service.socket.create_connection"), patch(
+            "core.web_service.urllib.request.urlopen", side_effect=error
+        ):
+            result = verificar_url("https://example.test")
+
+        self.assertFalse(result["online"])
+        self.assertEqual(result["error"], "HTTP 500")
+        self.assertNotIn(secret, result["error"])
 
     def test_failed_tcp_connect_closes_socket(self):
         sock = Mock()

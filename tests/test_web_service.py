@@ -53,6 +53,41 @@ class WebServiceTests(unittest.TestCase):
         self.assertEqual(result["error"], "HTTP 500")
         self.assertNotIn(secret, result["error"])
 
+    def test_probe_result_redacts_credentials_and_url_details(self):
+        url = "https://alice:password123@example.test/private/path?access_token=secret-123#fragment-secret"
+        response = Mock(status=200)
+        response.__enter__ = Mock(return_value=response)
+        response.__exit__ = Mock(return_value=None)
+        with patch("core.web_service.socket.create_connection"), patch(
+            "core.web_service.urllib.request.urlopen", return_value=response
+        ) as urlopen:
+            result = verificar_url(url)
+
+        self.assertEqual(result["url"], "https://example.test/…")
+        for secret in ("alice", "password123", "private/path", "secret-123", "fragment-secret"):
+            self.assertNotIn(secret, repr(result))
+        self.assertEqual(urlopen.call_args.args[0].full_url, url)
+
+    def test_invalid_url_error_does_not_echo_credentials(self):
+        result = verificar_url(
+            "https://alice:password123@example.test:not-a-port/path?token=secret-123"
+        )
+
+        self.assertEqual(result["url"], "<URL inválida>")
+        self.assertNotIn("password123", repr(result))
+        self.assertNotIn("secret-123", repr(result))
+
+    def test_default_service_name_does_not_echo_credentialed_url(self):
+        url = "https://alice:password123@example.test/private?token=secret-123"
+        with patch("core.web_service.verificar_url", return_value={
+            "url": "https://example.test/…", "online": True
+        }):
+            results = escanear_servicios_web([{"url": url}])
+
+        self.assertEqual(results[0]["nombre"], "https://example.test/…")
+        self.assertNotIn("password123", repr(results))
+        self.assertNotIn("secret-123", repr(results))
+
     def test_failed_tcp_connect_closes_socket(self):
         sock = Mock()
         with patch("core.web_service.socket.create_connection", return_value=sock) as connect, patch(

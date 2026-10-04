@@ -10,6 +10,7 @@ import time
 import json
 import ipaddress
 import math
+from urllib.parse import urlsplit
 from config.device import SERVICIOS_WEB
 
 
@@ -65,10 +66,32 @@ SERVICIOS_BUILTIN = {
 MAX_VERIFICATION_TIMEOUT = 60.0
 
 
+def _url_publica(url: object) -> str:
+    """Representa una URL sin mostrar credenciales, rutas, consultas ni fragmentos."""
+    if not isinstance(url, str):
+        return "<URL inválida>"
+    try:
+        parsed = urlsplit(url.strip())
+        host = parsed.hostname
+        port = parsed.port
+    except (TypeError, ValueError):
+        return "<URL inválida>"
+    if not parsed.scheme or not host:
+        return "<URL inválida>"
+
+    # Reconstruir solo el origen evita filtrar userinfo o secretos en rutas,
+    # parámetros de consulta y fragmentos al imprimir o alertar resultados.
+    host_publico = f"[{host}]" if ":" in host else host
+    autoridad = host_publico + (f":{port}" if port is not None else "")
+    incluye_detalles = parsed.path not in ("", "/") or bool(parsed.query or parsed.fragment)
+    sufijo = "/…" if incluye_detalles else ("/" if parsed.path == "/" else "")
+    return f"{parsed.scheme.lower()}://{autoridad}{sufijo}"
+
+
 def _resultado_error(url: object, motivo: str) -> dict:
     """Devuelve un resultado estable para errores de entrada sin abortar el escaneo."""
     return {
-        "url": str(url or ""),
+        "url": _url_publica(url),
         "online": False,
         "estado": "DOWN",
         "http": None,
@@ -140,6 +163,7 @@ def verificar_url(url: str, timeout: float = 5) -> dict:
         return _resultado_timeout_invalido(url)
     if not math.isfinite(timeout) or timeout <= 0 or timeout > MAX_VERIFICATION_TIMEOUT:
         return _resultado_timeout_invalido(url)
+    url_publica = _url_publica(url)
     try:
         parsed = urlparse(url)
         host = parsed.hostname
@@ -188,7 +212,7 @@ def verificar_url(url: str, timeout: float = 5) -> dict:
         with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
             lat_web = round((time.monotonic() - t0) * 1000, 1)
             return {
-                "url":      url,
+                "url":      url_publica,
                 "online":   True,
                 "estado":   "UP",
                 "http":     resp.status,
@@ -204,7 +228,7 @@ def verificar_url(url: str, timeout: float = 5) -> dict:
                 with urllib.request.urlopen(req_get, timeout=timeout, context=ctx) as resp:
                     lat_web = round((time.monotonic() - t0) * 1000, 1)
                     return {
-                        "url":      url,
+                        "url":      url_publica,
                         "online":   True,
                         "estado":   "UP",
                         "http":     resp.status,
@@ -217,7 +241,7 @@ def verificar_url(url: str, timeout: float = 5) -> dict:
         
         lat_web = round((time.monotonic() - t0) * 1000, 1)
         return {
-            "url":      url,
+            "url":      url_publica,
             "online":   e.code < 500,
             "estado":   "UP" if e.code < 500 else "DOWN",
             "http":     e.code,
@@ -228,7 +252,7 @@ def verificar_url(url: str, timeout: float = 5) -> dict:
     except (urllib.error.URLError, OSError, ValueError) as e:
         lat_web = round((time.monotonic() - t0) * 1000, 1)
         return {
-            "url":      url,
+            "url":      url_publica,
             "online":   False,
             "estado":   "DOWN",
             "http":     None,
@@ -253,7 +277,7 @@ def escanear_servicios_web(servicios: list | None = None) -> list:
             continue
 
         raw_url = svc.get("url", "")
-        nombre = svc.get("nombre", str(raw_url or ""))
+        nombre = svc.get("nombre") or _url_publica(raw_url)
         if raw_url is None or (isinstance(raw_url, str) and not raw_url.strip()):
             continue
         if not isinstance(raw_url, str):
@@ -293,7 +317,7 @@ def escanear_por_categorias() -> dict:
     def _tarea_verificar(item):
         cat, svc = item
         r = verificar_url(svc["url"])
-        r["nombre"] = svc.get("nombre", svc["url"])
+        r["nombre"] = svc.get("nombre") or _url_publica(svc["url"])
         r["ts"]     = datetime.datetime.now().isoformat(timespec="seconds")
         return cat, r
 

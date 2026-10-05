@@ -1,7 +1,28 @@
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
-from core.topology import build_topology, render_topology_dot, render_topology_text
+from core.topology import _local_ip, build_topology, render_topology_dot, render_topology_text
+
+
+class LocalIPDetectionTests(unittest.TestCase):
+    @patch("core.topology.socket.gethostname", return_value="visor-host")
+    @patch("core.topology.socket.gethostbyname", return_value="192.0.2.25")
+    @patch("core.topology.socket.socket", side_effect=OSError("socket unavailable"))
+    def test_socket_creation_failure_falls_back_to_hostname_resolution(
+        self, _socket, gethostbyname, _gethostname
+    ):
+        self.assertEqual(_local_ip(), "192.0.2.25")
+        gethostbyname.assert_called_once_with("visor-host")
+
+    @patch("core.topology.socket.socket")
+    def test_socket_close_failure_does_not_discard_detected_ip(self, socket_factory):
+        sock = Mock()
+        sock.getsockname.return_value = ("192.0.2.10", 0)
+        sock.close.side_effect = OSError("close failed")
+        socket_factory.return_value = sock
+
+        self.assertEqual(_local_ip(), "192.0.2.10")
+        sock.close.assert_called_once_with()
 
 
 class TopologyTests(unittest.TestCase):

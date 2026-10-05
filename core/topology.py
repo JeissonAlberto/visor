@@ -37,9 +37,10 @@ def _now() -> str:
 
 
 def _local_ip() -> str:
-    """Obtiene la IP de salida sin transmitir tráfico de aplicación."""
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    """Obtiene la IP local; si falla la sonda UDP, intenta resolver el hostname."""
+    sock = None
     try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.connect((DEFAULT_TRACE_TARGET, 80))
         return sock.getsockname()[0]
     except OSError:
@@ -48,7 +49,13 @@ def _local_ip() -> str:
         except OSError:
             return ""
     finally:
-        sock.close()
+        if sock is not None:
+            try:
+                sock.close()
+            except OSError:
+                # El cierre es best-effort; un fallo de limpieza no debe
+                # descartar la IP detectada ni interrumpir el reporte.
+                pass
 
 
 def _safe_ip(value: str) -> str:

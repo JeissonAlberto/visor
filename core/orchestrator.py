@@ -70,8 +70,9 @@ def _guardar_reporte(contenido: str, tipo: str = "NOC") -> str:
         with open(filename, "w", encoding="utf-8") as f:
             f.write(contenido)
         return filename
-    except Exception as e:
-        return f"No guardado: {e}"
+    except OSError as e:
+        # Los mensajes del sistema pueden revelar rutas locales u otros datos.
+        return f"No guardado: {type(e).__name__} (detalle omitido)"
 
 
 # ── Misiones individuales ─────────────────────────────────────────────────

@@ -4,7 +4,7 @@ import unittest
 from concurrent.futures import Future
 from unittest.mock import patch
 
-from core.orchestrator import MissionOrchestrator, _spinner_task
+from core.orchestrator import MissionOrchestrator, _guardar_reporte, _spinner_task
 
 
 class SpinnerTaskTests(unittest.TestCase):
@@ -33,6 +33,15 @@ class SpinnerTaskTests(unittest.TestCase):
         self.assertIsNone(result)
         self.assertTrue(future.cancelled())
         self.assertIn("TIMEOUT (1s)", output.getvalue())
+
+
+class SaveReportTests(unittest.TestCase):
+    @patch("core.orchestrator.os.makedirs", side_effect=PermissionError("token=do-not-leak"))
+    def test_report_save_error_omits_sensitive_exception_details(self, _makedirs):
+        result = _guardar_reporte("contenido")
+
+        self.assertEqual(result, "No guardado: PermissionError (detalle omitido)")
+        self.assertNotIn("do-not-leak", result)
 
 
 class OrchestratorInfraTests(unittest.TestCase):

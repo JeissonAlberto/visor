@@ -349,8 +349,9 @@ def monitoreo_continuo(intervalo: int = 60, callback=None):
                 else:
                     print(ok(" ONLINE"))
                     
-        except Exception as e:
-            print("  " + warn(f"Servicios web: error ({e})"))
+        except Exception as exc:
+            # La excepción puede contener URLs, parámetros u otros datos sensibles.
+            print("  " + warn(f"Servicios web: error ({type(exc).__name__}; detalle omitido)"))
 
         # ── 3. Resumen y espera ────────────────────────────────────
         t_total = round(time.time() - t_inicio, 1)

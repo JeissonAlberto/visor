@@ -1,3 +1,5 @@
+import contextlib
+import io
 import unittest
 from unittest.mock import patch
 
@@ -7,6 +9,7 @@ from core.monitor import (
     _rango_desde_rutas,
     _resolver_direccion,
     escanear_dispositivos,
+    monitoreo_continuo,
 )
 
 
@@ -71,6 +74,25 @@ class MonitorTests(unittest.TestCase):
 
         self.assertEqual(results[0]["estado"], "UP")
         self.assertEqual(results[0]["latencia"], 0.0)
+
+    def test_web_monitor_error_does_not_print_exception_details(self):
+        output = io.StringIO()
+        with (
+            patch("core.monitor.DISPOSITIVOS", [{"ip": "192.0.2.1"}]),
+            patch("core.monitor.escanear_dispositivos", return_value=[]),
+            patch(
+                "core.web_service.escanear_por_categorias",
+                side_effect=RuntimeError("api_key=do-not-leak"),
+            ),
+            patch("time.sleep", side_effect=KeyboardInterrupt),
+            contextlib.redirect_stdout(output),
+        ):
+            monitoreo_continuo(intervalo=1)
+
+        self.assertIn(
+            "Servicios web: error (RuntimeError; detalle omitido)", output.getvalue()
+        )
+        self.assertNotIn("do-not-leak", output.getvalue())
 
     def test_malformed_device_entries_are_skipped(self):
         with patch("core.monitor.detectar_red_local", return_value=(

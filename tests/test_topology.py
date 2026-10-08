@@ -163,6 +163,26 @@ class TopologyTests(unittest.TestCase):
     @patch("core.topology.local_wifi_context", return_value={})
     @patch("core.topology.detectar_gateway", return_value="")
     @patch("core.topology._local_ip", return_value="192.168.1.10")
+    def test_traceroute_error_details_are_redacted(self, _local, _gateway, _wifi):
+        def failing_trace(target):
+            raise RuntimeError("credential=must-not-appear")
+
+        result = build_topology(
+            trace_targets=["198.51.100.20"],
+            discover_fn=lambda **kwargs: [],
+            traceroute_fn=failing_trace,
+            ping_fn=lambda *args, **kwargs: (False, None),
+            wifi_provider=lambda: {},
+        )
+
+        self.assertEqual(
+            result["trazas"][0]["error"], "RuntimeError (detalle omitido)"
+        )
+        self.assertNotIn("must-not-appear", str(result["trazas"]))
+
+    @patch("core.topology.local_wifi_context", return_value={})
+    @patch("core.topology.detectar_gateway", return_value="")
+    @patch("core.topology._local_ip", return_value="192.168.1.10")
     def test_optional_wifi_provider_failure_does_not_abort_report(self, _local, _gateway, _wifi):
         def failing_provider():
             raise RuntimeError("provider unavailable")

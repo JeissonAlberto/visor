@@ -395,7 +395,8 @@ def build_topology(
             hops = trace(str(target)) or []
         except Exception as exc:
             hops = []
-            trace_error = str(exc)
+            # El error puede contener destinos, comandos o credenciales.
+            trace_error = f"{type(exc).__name__} (detalle omitido)"
         else:
             trace_error = ""
         trace_record = {

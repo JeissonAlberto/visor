@@ -37,6 +37,7 @@ def menu_principal():
         print(f"  {resaltar('L.')} 🌐  LAN Vision — Descubrimiento de Red")
         print(f"  {resaltar('O.')} 🕹️  Orchestrator (Misión Auto-Pilot)")
         print(f"  {resaltar('T.')} 🗺️  Topología verificada (LAN + ruta L3)")
+        print(f"  {resaltar('V.')} 🌐  Test IPv6 en el navegador (externo)")
         print(f"  {resaltar('0.')} ❌  Salir")
         separador()
 
@@ -60,6 +61,9 @@ def menu_principal():
         elif opcion.upper() == "L": _menu_lan_vision()
         elif opcion.upper() == "O": _menu_orchestrator()
         elif opcion.upper() == "T": _menu_topology()
+        elif opcion.upper() == "V":
+            abrir_test_ipv6()
+            input(f"\n  {dim('Enter para continuar...')}")
         elif opcion == "0":
             print(f"\n  {dim('─'*50)}")
             print(f"  {dim('Creado por ' + AUTOR)}")
@@ -68,6 +72,25 @@ def menu_principal():
             break
         else:
             print(f"\n  {warn('Opción inválida. Intenta de nuevo.')}")
+
+
+def abrir_test_ipv6():
+    """Solicita abrir el test externo; no captura ni interpreta su resultado."""
+    import webbrowser
+
+    url = "https://test-ipv6.com/"
+    print("\n  Test externo de IPv6: se abrirá en el navegador de este equipo.")
+    print("  El servicio externo recibirá la dirección IP pública de la conexión.")
+    print("  Visor no obtiene ni guarda los resultados. URL: " + url)
+    try:
+        abierto = webbrowser.open(url, new=2)
+    except (OSError, webbrowser.Error):
+        abierto = False
+    if abierto:
+        print("  Solicitud enviada al navegador; comprueba allí el resultado y el certificado HTTPS.")
+    else:
+        print("  No se pudo abrir el navegador. Puedes abrir la URL manualmente.")
+    return abierto
 
 
 # ── 1. Monitoreo continuo ─────────────────────────────────────────────────

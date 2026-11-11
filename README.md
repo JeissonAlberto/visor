@@ -12,6 +12,7 @@
 | 📡 Monitoreo de dispositivos | Ping por IP, dominio o MAC (ARP) |
 | 🌐 Verificación de servicios web | HTTP con código de respuesta y latencia |
 | 📶 Test de calidad de internet | Latencia avg/min/max, jitter y pérdida de paquetes |
+| 🌐 Test IPv6 externo | Abre test-ipv6.com en el navegador, sin importar resultados |
 | 🗺️ Escaneo de rango IP | Descubre hosts activos en una subred CIDR |
 | 📧 Alertas por correo | Gmail SMTP — notifica caídas y recuperaciones |
 | 📋 Reportes automáticos | Guarda TXT o JSON en `/reports` |
@@ -73,6 +74,7 @@ visor                # Menú interactivo principal
 visor --scan         # Escaneo único de dispositivos
 visor --web          # Verificar servicios web
 visor --internet     # Test de calidad de internet
+visor --ipv6         # Abrir test-ipv6.com en el navegador
 visor --watch        # Monitoreo continuo LAN + servicios públicos
 visor --setup        # Asistente de configuración
 visor --report       # Ver último reporte
@@ -262,3 +264,7 @@ presionar `Ctrl+C`. Se actualizan `topology_live.drawio`, `topology_live.json`,
 `topology_live.txt`, además del historial JSONL y CSV. El draw.io incluye el
 promedio ICMP y porcentaje de pérdida por salto.
 
+
+### Test IPv6 externo
+
+Ejecuta `visor --ipv6` o elige **V** en el menú para abrir `https://test-ipv6.com/` en el navegador del equipo. Es un servicio de terceros: recibirá la IP pública de la conexión. Visor no ejecuta la prueba, no lee ni guarda sus resultados. Abrir el navegador no garantiza que el sitio cargue ni que el equipo tenga conectividad IPv6; si aparece un error de certificado, no lo ignores.

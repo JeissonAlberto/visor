@@ -33,18 +33,19 @@ class ProxmoxAgentTests(unittest.TestCase):
         self.assertFalse(context.check_hostname)
         self.assertEqual(context.verify_mode, ssl.CERT_NONE)
 
-    def test_invalid_ca_path_is_reported_without_raising(self):
+    def test_invalid_ca_path_returns_stable_redacted_error(self):
         with patch.dict(
             os.environ,
             {"VISOR_PROXMOX_CA_FILE": "/path/that/does/not/exist.pem"},
             clear=False,
         ):
             result = proxmox_agent._proxmox_get(
-                "proxmox.example", "root@pam!visor", "placeholder", "/nodes"
+                "proxmox.example", "root@pam!visor", "secret-token", "/nodes"
             )
 
-        self.assertIn("error", result)
-        self.assertNotIn("placeholder", result["error"])
+        self.assertEqual(result, {"error": "No fue posible consultar la API de Proxmox."})
+        self.assertNotIn("secret-token", str(result))
+        self.assertNotIn("proxmox.example", str(result))
 
     def test_ping_closes_socket_when_connect_fails(self):
         with patch("core.proxmox_agent.socket.socket") as socket_factory:

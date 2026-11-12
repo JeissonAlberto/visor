@@ -120,8 +120,8 @@ def _menu_proxmox():
     nodes = get_nodes_status(host, token_id, token_sec)
 
     if nodes and nodes[0].get("error"):
-        print(f"  {fallo('Error de autenticación:')} {nodes[0]['error']}")
-        print(f"  {dim('Crea un token: Datacenter > Permissions > API Tokens')}")
+        print(f"  {fallo('No fue posible consultar la API:')} {nodes[0]['error']}")
+        print(f"  {dim('Verifica la CA/TLS configurada y los permisos del token de solo lectura.')}")
         input(f"\n  {dim('Enter para continuar...')}")
         return
 

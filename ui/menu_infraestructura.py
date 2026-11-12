@@ -138,7 +138,9 @@ def _menu_proxmox():
         # VMs del nodo
         print(f"\n  {titulo('MÁQUINAS VIRTUALES')}")
         vms = get_vms_status(host, node["node"], token_id, token_sec)
-        if vms:
+        if vms and vms[0].get("error"):
+            print(f"  {fallo('No fue posible consultar las máquinas virtuales:')} {vms[0]['error']}")
+        elif vms:
             print(f"  {'VMID':<8} {'NOMBRE':<20} {'ESTADO':<12} {'CPU%':>6} {'MEM(MB)':>10} {'UPTIME':>10}")
             print(f"  {dim('─'*70)}")
             for vm in vms:

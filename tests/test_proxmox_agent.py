@@ -47,6 +47,35 @@ class ProxmoxAgentTests(unittest.TestCase):
         self.assertNotIn("secret-token", str(result))
         self.assertNotIn("proxmox.example", str(result))
 
+    def test_node_query_preserves_redacted_api_failure(self):
+        with (
+            patch.object(proxmox_agent, "ping_proxmox", return_value=True),
+            patch.object(
+                proxmox_agent,
+                "_proxmox_get",
+                return_value={"error": "No fue posible consultar la API de Proxmox."},
+            ),
+        ):
+            result = proxmox_agent.get_nodes_status("proxmox.example")
+
+        self.assertEqual(
+            result,
+            [{"error": "No fue posible consultar la API de Proxmox."}],
+        )
+
+    def test_vm_query_preserves_redacted_api_failure(self):
+        with patch.object(
+            proxmox_agent,
+            "_proxmox_get",
+            return_value={"error": "No fue posible consultar la API de Proxmox."},
+        ):
+            result = proxmox_agent.get_vms_status("proxmox.example", "node1")
+
+        self.assertEqual(
+            result,
+            [{"error": "No fue posible consultar la API de Proxmox."}],
+        )
+
     def test_ping_closes_socket_when_connect_fails(self):
         with patch("core.proxmox_agent.socket.socket") as socket_factory:
             sock = socket_factory.return_value

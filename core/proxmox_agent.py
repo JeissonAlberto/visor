@@ -85,6 +85,9 @@ def get_nodes_status(host: str, token_id: str = "root@pam!visor", token_secret: 
         return [{"online": False, "error": "No responde en puerto 8006"}]
 
     raw = _proxmox_get(host, token_id, token_secret, "/nodes")
+    if raw.get("error"):
+        return [{"error": raw["error"]}]
+
     nodes = []
     for node in raw.get("data", []):
         cpu_pct = round(node.get("cpu", 0) * 100, 1)
@@ -110,6 +113,9 @@ def get_nodes_status(host: str, token_id: str = "root@pam!visor", token_secret: 
 def get_vms_status(host: str, node: str, token_id: str = "root@pam!visor", token_secret: str = "") -> list:
     """Retorna el estado de las VMs en un nodo Proxmox."""
     raw = _proxmox_get(host, token_id, token_secret, f"/nodes/{node}/qemu")
+    if raw.get("error"):
+        return [{"error": raw["error"]}]
+
     vms = []
     for vm in raw.get("data", []):
         vms.append({

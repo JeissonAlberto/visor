@@ -135,7 +135,10 @@ class TelemetryClient:
             return {"sent": False, "skipped": True, "reason": "telemetría no activada"}
         if not _endpoint_allowed(self.url):
             return {"sent": False, "skipped": True, "reason": "endpoint no permitido para prueba segura"}
-        body = json.dumps(event, ensure_ascii=False).encode("utf-8")
+        try:
+            body = json.dumps(event, ensure_ascii=False, allow_nan=False).encode("utf-8")
+        except (TypeError, ValueError):
+            return {"sent": False, "error": "evento no serializable"}
         headers = {"Content-Type": "application/json", "User-Agent": "visor-telemetry/1"}
         if self.token:
             headers["Authorization"] = f"Bearer {self.token}"

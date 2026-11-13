@@ -37,6 +37,28 @@ class TelemetryTests(unittest.TestCase):
         self.assertEqual(json.loads(request.data), {"x": 1})
         self.assertEqual(request.headers["Authorization"], "Bearer test-token")
 
+    def test_non_json_events_are_rejected_without_network_request(self):
+        opener = Mock()
+        with patch("core.telemetry.urllib.request.build_opener", return_value=opener):
+            result = TelemetryClient(
+                url="http://127.0.0.1:3049/events", enabled=True
+            ).send_event({"value": object()})
+
+        self.assertFalse(result["sent"])
+        self.assertEqual(result["error"], "evento no serializable")
+        opener.open.assert_not_called()
+
+    def test_non_finite_numbers_are_rejected_without_network_request(self):
+        opener = Mock()
+        with patch("core.telemetry.urllib.request.build_opener", return_value=opener):
+            result = TelemetryClient(
+                url="http://127.0.0.1:3049/events", enabled=True
+            ).send_event({"latency": float("nan")})
+
+        self.assertFalse(result["sent"])
+        self.assertEqual(result["error"], "evento no serializable")
+        opener.open.assert_not_called()
+
     def test_redirects_are_not_followed(self):
         handler = _NoRedirectHandler()
         redirected = handler.redirect_request(

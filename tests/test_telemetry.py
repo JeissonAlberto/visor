@@ -14,6 +14,25 @@ class TelemetryTests(unittest.TestCase):
         self.assertNotIn("8.8.8.8", json.dumps(safe))
         self.assertNotIn("10.0.0.1", json.dumps(safe))
 
+    def test_topology_event_limits_summary_to_nonnegative_aggregate_counters(self):
+        event = topology_event({"resumen": {
+            "nodos": 3,
+            "conexiones_verificadas": 2,
+            "objetivo": "10.0.0.1",
+            "host": "router-secret",
+            "malicious": {"token": "secret"},
+            "equipos_lan": -1,
+            "saltos_l3": True,
+        }})
+
+        self.assertEqual(event["payload"]["resumen"], {
+            "nodos": 3, "conexiones_verificadas": 2,
+        })
+        encoded = json.dumps(event)
+        self.assertNotIn("10.0.0.1", encoded)
+        self.assertNotIn("router-secret", encoded)
+        self.assertNotIn("secret", encoded)
+
     def test_topology_event_ignores_malformed_optional_metrics(self):
         event = topology_event({"ts": "2026-08-06T00:00:00Z", "monitorizacion": {"saltos": [None, "invalid"]}})
         self.assertEqual(event["payload"]["path_metrics"], [])

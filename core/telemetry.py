@@ -49,6 +49,24 @@ def create_event(event_type: str, payload: dict[str, Any], source: str = "visor"
     }
 
 
+_SUMMARY_FIELDS = {
+    "nodos", "conexiones", "conexiones_verificadas", "equipos_lan",
+    "saltos_l3", "equipos_wifi",
+}
+
+
+def _safe_summary(summary: Any) -> dict[str, int]:
+    """Keep only known aggregate counters; never copy arbitrary topology data."""
+    if not isinstance(summary, dict):
+        return {}
+    return {
+        key: value
+        for key, value in summary.items()
+        if key in _SUMMARY_FIELDS and isinstance(value, int)
+        and not isinstance(value, bool) and value >= 0
+    }
+
+
 def topology_event(topology: dict[str, Any], include_identifiers: bool = False) -> dict[str, Any]:
     """Convierte una muestra de topología en un evento sin secretos.
 
@@ -81,7 +99,7 @@ def topology_event(topology: dict[str, Any], include_identifiers: bool = False) 
     payload = {
         "topology_ts": topology.get("ts"),
         "objetivo_id": _identifier(monitor.get("objetivo"), include_identifiers),
-        "resumen": topology.get("resumen", {}),
+        "resumen": _safe_summary(topology.get("resumen")),
         "path_metrics": path_metrics,
     }
     return create_event("topology.path_sample", payload, observed_at=topology.get("ts"))

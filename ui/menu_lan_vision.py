@@ -284,10 +284,10 @@ def _mapa_visual():
         import subprocess, re, platform
         sistema = platform.system().lower()
         if sistema == "windows":
-            r = subprocess.run(["ipconfig"], capture_output=True, text=True)
+            r = subprocess.run(["ipconfig"], capture_output=True, text=True, timeout=5)
             m = re.search(r"(?:Puerta de enlace|Default Gateway)[^\d]+([\d.]+)", r.stdout, re.IGNORECASE)
         else:
-            r = subprocess.run(["ip", "route"], capture_output=True, text=True)
+            r = subprocess.run(["ip", "route"], capture_output=True, text=True, timeout=5)
             m = re.search(r"default via ([\d.]+)", r.stdout)
         gw_ip = m.group(1) if m else None
     except (OSError, subprocess.SubprocessError, AttributeError, TypeError, ValueError):

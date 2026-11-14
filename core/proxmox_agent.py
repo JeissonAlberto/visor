@@ -9,6 +9,7 @@ import os
 import socket
 import urllib.request
 import urllib.error
+import http.client
 import ssl
 import ipaddress
 from datetime import datetime
@@ -58,7 +59,7 @@ def _proxmox_get(host: str, token_id: str, token_secret: str, endpoint: str) -> 
         req.add_header("Authorization", f"PVEAPIToken={token_id}={token_secret}")
         with urllib.request.urlopen(req, context=ctx, timeout=5) as resp:
             return json.loads(resp.read().decode())
-    except (urllib.error.URLError, OSError, ValueError, UnicodeError):
+    except (urllib.error.URLError, OSError, ValueError, UnicodeError, http.client.HTTPException):
         # urllib exceptions may embed the private host, endpoint, or response
         # details; keep diagnostics stable and avoid echoing infrastructure data.
         return {"error": "No fue posible consultar la API de Proxmox."}

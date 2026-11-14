@@ -47,6 +47,23 @@ class ProxmoxAgentTests(unittest.TestCase):
         self.assertNotIn("secret-token", str(result))
         self.assertNotIn("proxmox.example", str(result))
 
+    def test_http_protocol_errors_return_stable_redacted_error(self):
+        import http.client
+
+        with patch.object(
+            proxmox_agent, "_proxmox_ssl_context", return_value=ssl.create_default_context()
+        ), patch(
+            "core.proxmox_agent.urllib.request.urlopen",
+            side_effect=http.client.BadStatusLine("secret-host internal response"),
+        ):
+            result = proxmox_agent._proxmox_get(
+                "proxmox.example", "root@pam!visor", "secret-token", "/nodes"
+            )
+
+        self.assertEqual(result, {"error": "No fue posible consultar la API de Proxmox."})
+        self.assertNotIn("secret-host", str(result))
+        self.assertNotIn("secret-token", str(result))
+
     def test_node_query_preserves_redacted_api_failure(self):
         with (
             patch.object(proxmox_agent, "ping_proxmox", return_value=True),

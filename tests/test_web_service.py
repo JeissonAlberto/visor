@@ -139,6 +139,24 @@ class WebServiceTests(unittest.TestCase):
         connect.assert_called_once_with(("example.test", 80), timeout=0.5)
         self.assertEqual(urlopen.call_args.kwargs["timeout"], 0.5)
 
+    def test_malformed_http_request_errors_return_stable_result(self):
+        invalid_unicode_url = "https://" + chr(0xD800) + ".example"
+        from http.client import InvalidURL
+        cases = (
+            ("https://exa mple.com", InvalidURL("invalid hostname")),
+            (invalid_unicode_url, UnicodeEncodeError("idna", chr(0xD800), 0, 1, "invalid")),
+        )
+        for url, error in cases:
+            with self.subTest(url=repr(url)), patch(
+                "core.web_service.socket.create_connection"
+            ), patch("core.web_service.urllib.request.urlopen", side_effect=error):
+            
+                result = verificar_url(url)
+
+            self.assertFalse(result["online"])
+            self.assertEqual(result["estado"], "DOWN")
+            self.assertEqual(result["error"], "Respuesta inválida")
+
     def test_unsupported_scheme_returns_result_without_network_request(self):
         with patch("core.web_service.socket.create_connection") as connect, patch(
             "core.web_service.urllib.request.urlopen"

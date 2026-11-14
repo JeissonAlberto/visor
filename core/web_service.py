@@ -4,6 +4,7 @@ core/web_service.py — Verificación de servicios web y geolocalización de IPs
 
 import urllib.request
 import urllib.error
+import http.client
 import socket
 import ssl
 import time
@@ -236,7 +237,7 @@ def verificar_url(url: str, timeout: float = 5) -> dict:
                         "lat_red":  t_red,
                         "error":    None,
                     }
-            except (urllib.error.URLError, OSError, ValueError):
+            except (urllib.error.URLError, OSError, ValueError, http.client.HTTPException, UnicodeError):
                 pass
         
         lat_web = round((time.monotonic() - t0) * 1000, 1)
@@ -249,7 +250,7 @@ def verificar_url(url: str, timeout: float = 5) -> dict:
             "lat_red":  t_red,
             "error":    f"HTTP {e.code}",
         }
-    except (urllib.error.URLError, OSError, ValueError) as e:
+    except (urllib.error.URLError, OSError, ValueError, http.client.HTTPException, UnicodeError) as e:
         lat_web = round((time.monotonic() - t0) * 1000, 1)
         return {
             "url":      url_publica,

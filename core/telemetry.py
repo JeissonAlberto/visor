@@ -60,7 +60,13 @@ def _safe_metric_value(value: Any, minimum: float, maximum: float | None = None)
     """Accept finite numeric telemetry within its documented range."""
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return None
-    if not math.isfinite(value) or value < minimum or (maximum is not None and value > maximum):
+    try:
+        finite = math.isfinite(value)
+    except OverflowError:
+        # Python integers have arbitrary precision, but converting an enormous
+        # integer to float for isfinite() can overflow before JSON encoding.
+        return None
+    if not finite or value < minimum or (maximum is not None and value > maximum):
         return None
     return value
 

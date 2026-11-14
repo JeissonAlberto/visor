@@ -48,6 +48,13 @@ class TelemetryTests(unittest.TestCase):
         self.assertEqual(metrics[1]["promedio_ms"], 4)
         self.assertIs(metrics[1]["alcanzable"], False)
 
+    def test_topology_event_filters_integer_too_large_for_float_conversion(self):
+        event = topology_event({"monitorizacion": {"saltos": [
+            {"host": "router", "promedio_ms": 10 ** 10000},
+        ]}})
+
+        self.assertIsNone(event["payload"]["path_metrics"][0]["promedio_ms"])
+
     def test_topology_event_ignores_malformed_optional_metrics(self):
         event = topology_event({"ts": "2026-08-06T00:00:00Z", "monitorizacion": {"saltos": [None, "invalid"]}})
         self.assertEqual(event["payload"]["path_metrics"], [])

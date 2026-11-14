@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import re
 import urllib.error
@@ -55,6 +56,15 @@ _SUMMARY_FIELDS = {
 }
 
 
+def _safe_metric_value(value: Any, minimum: float, maximum: float | None = None) -> int | float | None:
+    """Accept finite numeric telemetry within its documented range."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    if not math.isfinite(value) or value < minimum or (maximum is not None and value > maximum):
+        return None
+    return value
+
+
 def _safe_summary(summary: Any) -> dict[str, int]:
     """Keep only known aggregate counters; never copy arbitrary topology data."""
     if not isinstance(summary, dict):
@@ -88,9 +98,9 @@ def topology_event(topology: dict[str, Any], include_identifiers: bool = False) 
         if not isinstance(metric, dict):
             continue
         item = {
-            "perdida_pct": metric.get("perdida_pct"),
-            "promedio_ms": metric.get("promedio_ms"),
-            "alcanzable": metric.get("alcanzable"),
+            "perdida_pct": _safe_metric_value(metric.get("perdida_pct"), 0, 100),
+            "promedio_ms": _safe_metric_value(metric.get("promedio_ms"), 0),
+            "alcanzable": metric.get("alcanzable") if isinstance(metric.get("alcanzable"), bool) else None,
         }
         host = metric.get("host")
         if host:

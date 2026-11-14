@@ -33,6 +33,21 @@ class TelemetryTests(unittest.TestCase):
         self.assertNotIn("router-secret", encoded)
         self.assertNotIn("secret", encoded)
 
+    def test_topology_event_filters_invalid_numeric_metrics(self):
+        topology = {"monitorizacion": {"saltos": [
+            {"host": "router", "perdida_pct": 150, "promedio_ms": float("inf"), "alcanzable": "yes"},
+            {"host": "valid", "perdida_pct": 2.5, "promedio_ms": 4, "alcanzable": False},
+        ]}}
+
+        event = topology_event(topology)
+        metrics = event["payload"]["path_metrics"]
+        self.assertEqual(metrics[0]["perdida_pct"], None)
+        self.assertEqual(metrics[0]["promedio_ms"], None)
+        self.assertIsNone(metrics[0]["alcanzable"])
+        self.assertEqual(metrics[1]["perdida_pct"], 2.5)
+        self.assertEqual(metrics[1]["promedio_ms"], 4)
+        self.assertIs(metrics[1]["alcanzable"], False)
+
     def test_topology_event_ignores_malformed_optional_metrics(self):
         event = topology_event({"ts": "2026-08-06T00:00:00Z", "monitorizacion": {"saltos": [None, "invalid"]}})
         self.assertEqual(event["payload"]["path_metrics"], [])

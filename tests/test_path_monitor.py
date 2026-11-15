@@ -94,14 +94,22 @@ class PathMonitorTests(unittest.TestCase):
 
     def test_monitor_ignores_malformed_traces_and_nodes(self):
         topology = {
-            "trazas": [None, {"saltos": "invalid", "ip_destino": "1.1.1.1"}, "invalid"],
+            "trazas": [
+                None,
+                {"saltos": "invalid", "ip_destino": "1.1.1.1"},
+                {"saltos": [{"ip": []}, {"ip": " "}, {"ip": "1.1.1.1"}], "ip_destino": []},
+                "invalid",
+            ],
             "nodos": [None, "invalid"],
         }
-        result = monitor_once(
-            "1.1.1.1",
-            topology_fn=lambda **kwargs: topology,
-            probe_fn=lambda host, count: {"host": host, "perdida_pct": 0, "promedio_ms": 5.0, "alcanzable": True},
-        )
+        probed = []
+
+        def probe(host, count):
+            probed.append(host)
+            return {"host": host, "perdida_pct": 0, "promedio_ms": 5.0, "alcanzable": True}
+
+        result = monitor_once("1.1.1.1", topology_fn=lambda **kwargs: topology, probe_fn=probe)
+        self.assertEqual(probed, ["1.1.1.1"])
         self.assertEqual(result["monitorizacion"]["saltos"][0]["host"], "1.1.1.1")
         self.assertEqual(result["nodos"], [None, "invalid"])
 

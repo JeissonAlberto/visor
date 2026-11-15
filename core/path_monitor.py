@@ -117,10 +117,10 @@ def _path_hosts(topology: dict) -> list[str]:
         if isinstance(hops, list):
             for hop in hops:
                 host = hop.get("ip") if isinstance(hop, dict) else ""
-                if host and host not in hosts:
+                if isinstance(host, str) and host.strip() and host not in hosts:
                     hosts.append(host)
         target = trace.get("ip_destino", "")
-        if target and target not in hosts:
+        if isinstance(target, str) and target.strip() and target not in hosts:
             hosts.append(target)
     return hosts
 

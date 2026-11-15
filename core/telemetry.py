@@ -7,6 +7,7 @@ VISOR_TELEMETRY_ENABLED=1 y configura VISOR_TELEMETRY_URL.
 from __future__ import annotations
 
 import hashlib
+import http.client
 import json
 import math
 import os
@@ -185,7 +186,7 @@ class TelemetryClient:
                 return {"sent": True, "status": int(response.status)}
         except urllib.error.HTTPError as exc:
             return {"sent": False, "status": int(exc.code), "error": "endpoint rechazó el evento"}
-        except (urllib.error.URLError, TimeoutError):
+        except (urllib.error.URLError, TimeoutError, http.client.HTTPException):
             return {"sent": False, "error": "endpoint no disponible o agotó el tiempo"}
 
     def send_topology(self, topology: dict[str, Any], include_identifiers: bool = False) -> dict[str, Any]:

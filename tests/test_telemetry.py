@@ -100,6 +100,19 @@ class TelemetryTests(unittest.TestCase):
         self.assertEqual(result["error"], "evento no serializable")
         opener.open.assert_not_called()
 
+    def test_http_protocol_errors_return_stable_failure_without_details(self):
+        import http.client
+
+        opener = Mock()
+        opener.open.side_effect = http.client.BadStatusLine("secret response detail")
+        with patch("core.telemetry.urllib.request.build_opener", return_value=opener):
+            result = TelemetryClient(
+                url="http://127.0.0.1:3049/events", token="secret-token", enabled=True
+            ).send_event({"x": 1})
+
+        self.assertEqual(result, {"sent": False, "error": "endpoint no disponible o agotó el tiempo"})
+        self.assertNotIn("secret", str(result))
+
     def test_redirects_are_not_followed(self):
         handler = _NoRedirectHandler()
         redirected = handler.redirect_request(

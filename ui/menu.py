@@ -38,6 +38,7 @@ def menu_principal():
         print(f"  {resaltar('O.')} 🕹️  Orchestrator (Misión Auto-Pilot)")
         print(f"  {resaltar('T.')} 🗺️  Topología verificada (LAN + ruta L3)")
         print(f"  {resaltar('V.')} 🌐  Test IPv6 en el navegador (externo)")
+        print(f"  {resaltar('P.')} 🛡️  Consultar reputación IP (AbuseIPDB)")
         print(f"  {resaltar('0.')} ❌  Salir")
         separador()
 
@@ -61,6 +62,12 @@ def menu_principal():
         elif opcion.upper() == "L": _menu_lan_vision()
         elif opcion.upper() == "O": _menu_orchestrator()
         elif opcion.upper() == "T": _menu_topology()
+        elif opcion.upper() == "P":
+            print("  La IP consultada se envía a AbuseIPDB; solo lectura.")
+            ip = input("  IP pública (vacío para cancelar): ").strip()
+            if ip:
+                consultar_abuseip(ip)
+            input(f"\n  {dim('Enter para continuar...')}")
         elif opcion.upper() == "V":
             abrir_test_ipv6()
             input(f"\n  {dim('Enter para continuar...')}")
@@ -72,6 +79,21 @@ def menu_principal():
             break
         else:
             print(f"\n  {warn('Opción inválida. Intenta de nuevo.')}")
+
+
+def consultar_abuseip(ip):
+    """Muestra una consulta manual; no bloquea ni reporta IPs."""
+    from core.abuseipdb import consultar_ip
+    print("\n  Consulta externa a AbuseIPDB; se enviará la IP solicitada.")
+    resultado = consultar_ip(ip)
+    if not resultado["ok"]:
+        print("  " + resultado["error"])
+        return False
+    print(f"  IP: {resultado['ip']}  |  Confianza de abuso: {resultado['score']}/100")
+    print(f"  Reportes ({resultado['days']} días): {resultado['reports']}  |  Último: {resultado['last_reported'] or 'sin dato'}")
+    print(f"  País: {resultado['country'] or 'sin dato'}  |  ISP: {resultado['isp'] or 'sin dato'}")
+    print("  Indicador de terceros, no prueba concluyente; no se aplicó ningún bloqueo.")
+    return True
 
 
 def abrir_test_ipv6():

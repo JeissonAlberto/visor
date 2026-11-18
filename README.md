@@ -75,6 +75,7 @@ visor --scan         # Escaneo único de dispositivos
 visor --web          # Verificar servicios web
 visor --internet     # Test de calidad de internet
 visor --ipv6         # Abrir test-ipv6.com en el navegador
+visor --abuseip IP   # Consulta manual de reputación en AbuseIPDB
 visor --watch        # Monitoreo continuo LAN + servicios públicos
 visor --setup        # Asistente de configuración
 visor --report       # Ver último reporte
@@ -268,3 +269,7 @@ promedio ICMP y porcentaje de pérdida por salto.
 ### Test IPv6 externo
 
 Ejecuta `visor --ipv6` o elige **V** en el menú para abrir `https://test-ipv6.com/` en el navegador del equipo. Es un servicio de terceros: recibirá la IP pública de la conexión. Visor no ejecuta la prueba, no lee ni guarda sus resultados. Abrir el navegador no garantiza que el sitio cargue ni que el equipo tenga conectividad IPv6; si aparece un error de certificado, no lo ignores.
+
+### Reputación IP con AbuseIPDB (opcional)
+
+Consulta manual y de solo lectura, desde el menú **P** o con `visor --abuseip 8.8.8.8`. Requiere configurar en el entorno local `VISOR_ABUSEIPDB_API_KEY`, obtenida desde https://www.abuseipdb.com/account/api. No la incluyas en Git, argumentos, capturas ni reportes; configúrala de forma temporal y segura en tu entorno. La consulta envía la IP pública elegida a AbuseIPDB por HTTPS, usa el endpoint oficial `check` con una ventana de 90 días y no envía IPs privadas. Sin clave no hace consultas. No reporta ni bloquea IPs, no se ejecuta automáticamente y no guarda resultados. La puntuación es un indicador externo, no prueba concluyente; 0 no garantiza seguridad. El servicio limita las consultas según el plan. Si aparece HTTP 429, espera la renovación de la cuota.

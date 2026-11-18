@@ -9,6 +9,7 @@ Uso:
     visor --web                 # Solo servicios web
     visor --internet            # Test de calidad de internet
     visor --ipv6                # Abrir test externo IPv6 en el navegador
+    visor --abuseip <IP>        # Consultar reputación en AbuseIPDB
     visor --watch               # Monitoreo continuo LAN + servicios públicos
     visor --setup               # Asistente de configuración
     visor --report              # Ver último reporte
@@ -75,6 +76,7 @@ def parse_args():
     parser.add_argument("--scan",       action="store_true",  help="Escaneo rápido de red")
     parser.add_argument("--web",        action="store_true",  help="Verificar servicios web")
     parser.add_argument("--internet",   action="store_true",  help="Test de calidad de internet")
+    parser.add_argument("--abuseip", type=_network_target, metavar="IP", help="Consultar IP pública en AbuseIPDB")
     parser.add_argument("--ipv6",       action="store_true",  help="Abrir test IPv6 externo en el navegador")
     parser.add_argument("--watch",      action="store_true",  help="Monitoreo continuo LAN + servicios públicos")
     parser.add_argument("--setup",      action="store_true",  help="Asistente de configuración")
@@ -119,6 +121,10 @@ def main():
         from ui.menu import run_direct
         run_direct(args)
         sys.exit(0)
+
+    if args.abuseip:
+        from ui.menu import consultar_abuseip
+        sys.exit(0 if consultar_abuseip(args.abuseip) else 1)
 
     if args.ipv6:
         from ui.menu import abrir_test_ipv6

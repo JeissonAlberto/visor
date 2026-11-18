@@ -18,9 +18,12 @@ def _ssh_cmd(host: str, user: str, password: str, command: str, timeout: int = 5
              f"{user}@{host}", command],
             capture_output=True, text=True, timeout=timeout + 2
         )
+        if resultado.returncode != 0:
+            return "ERROR: SSH command failed"
         return resultado.stdout.strip()
-    except (OSError, subprocess.SubprocessError) as e:
-        return f"ERROR: {e}"
+    except (OSError, subprocess.SubprocessError):
+        # Avoid surfacing exception details that may include connection data.
+        return "ERROR: SSH command failed"
 
 def ping_mikrotik(host: str) -> bool:
     """Verifica si el MikroTik responde al ping."""

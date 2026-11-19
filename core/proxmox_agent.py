@@ -15,6 +15,9 @@ import ipaddress
 from datetime import datetime
 
 
+PROXMOX_MAX_RESPONSE_BYTES = 8 * 1024 * 1024
+
+
 def _proxmox_ssl_context(host: str) -> ssl.SSLContext:
     """Crea un contexto TLS verificable para la API de Proxmox.
 
@@ -58,7 +61,10 @@ def _proxmox_get(host: str, token_id: str, token_secret: str, endpoint: str) -> 
         req = urllib.request.Request(url)
         req.add_header("Authorization", f"PVEAPIToken={token_id}={token_secret}")
         with urllib.request.urlopen(req, context=ctx, timeout=5) as resp:
-            return json.loads(resp.read().decode())
+            body = resp.read(PROXMOX_MAX_RESPONSE_BYTES + 1)
+        if len(body) > PROXMOX_MAX_RESPONSE_BYTES:
+            return {"error": "La respuesta de la API de Proxmox supera el límite permitido."}
+        return json.loads(body.decode())
     except (urllib.error.URLError, OSError, ValueError, UnicodeError, http.client.HTTPException):
         # urllib exceptions may embed the private host, endpoint, or response
         # details; keep diagnostics stable and avoid echoing infrastructure data.

@@ -4,9 +4,37 @@ import unittest
 from unittest.mock import patch
 
 from core import proxmox_agent
+from core.proxmox_agent import PROXMOX_MAX_RESPONSE_BYTES
 
 
 class ProxmoxAgentTests(unittest.TestCase):
+    def test_large_response_is_rejected_with_stable_error(self):
+        response = unittest.mock.MagicMock()
+        response.__enter__.return_value.read.return_value = b"{" * (PROXMOX_MAX_RESPONSE_BYTES + 1)
+        with patch.object(proxmox_agent, "_proxmox_ssl_context", return_value=ssl.create_default_context()), patch(
+            "core.proxmox_agent.urllib.request.urlopen", return_value=response
+        ) as urlopen:
+            result = proxmox_agent._proxmox_get(
+                "proxmox.example", "root@pam!visor", "secret-token", "/nodes"
+            )
+
+        self.assertEqual(result, {"error": "La respuesta de la API de Proxmox supera el límite permitido."})
+        response.__enter__.return_value.read.assert_called_once_with(PROXMOX_MAX_RESPONSE_BYTES + 1)
+        self.assertNotIn("secret-token", str(result))
+        urlopen.assert_called_once()
+
+    def test_response_within_limit_is_parsed(self):
+        response = unittest.mock.MagicMock()
+        response.__enter__.return_value.read.return_value = b'{"data": []}'
+        with patch.object(proxmox_agent, "_proxmox_ssl_context", return_value=ssl.create_default_context()), patch(
+            "core.proxmox_agent.urllib.request.urlopen", return_value=response
+        ):
+            result = proxmox_agent._proxmox_get(
+                "proxmox.example", "root@pam!visor", "secret-token", "/nodes"
+            )
+
+        self.assertEqual(result, {"data": []})
+
     def test_tls_context_verifies_system_ca_by_default(self):
         with patch.dict(os.environ, {}, clear=False):
             os.environ.pop("VISOR_PROXMOX_CA_FILE", None)

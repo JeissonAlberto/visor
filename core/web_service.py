@@ -333,6 +333,9 @@ def escanear_por_categorias() -> dict:
 
 # ── Geolocalización de IP ─────────────────────────────────────────────────
 
+GEOLOCATION_MAX_RESPONSE = 65536
+
+
 def geolocalizacion_ip(ip: str) -> dict:
     """
     Geolocaliza una IP usando ip-api.com (gratuito, sin clave).
@@ -356,7 +359,14 @@ def geolocalizacion_ip(ip: str) -> dict:
         url = "http://ip-api.com/json/" + ip + "?fields=status,message,country,countryCode,regionName,city,zip,lat,lon,isp,org,as,query&lang=es"
         req = urllib.request.Request(url, headers={"User-Agent": "Visor-NOC/2.0"})
         with urllib.request.urlopen(req, timeout=6) as resp:
-            data = json.loads(resp.read().decode())
+            body = resp.read(GEOLOCATION_MAX_RESPONSE + 1)
+        if len(body) > GEOLOCATION_MAX_RESPONSE:
+            return {
+                "ip": ip,
+                "privada": False,
+                "error": "Respuesta demasiado grande del proveedor de geolocalización",
+            }
+        data = json.loads(body.decode())
         if data.get("status") == "success":
             return {
                 "ip":          data.get("query", ip),

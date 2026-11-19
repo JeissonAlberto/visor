@@ -9,10 +9,36 @@ from core.web_service import (
     escanear_servicios_web,
     geolocalizacion_ip,
     verificar_url,
+    GEOLOCATION_MAX_RESPONSE,
 )
 
 
 class WebServiceTests(unittest.TestCase):
+    def test_geolocation_response_size_is_bounded(self):
+        response = Mock()
+        response.__enter__ = Mock(return_value=response)
+        response.__exit__ = Mock(return_value=None)
+        response.read.return_value = b"{" * (GEOLOCATION_MAX_RESPONSE + 1)
+        with patch("core.web_service.urllib.request.urlopen", return_value=response) as urlopen:
+            result = geolocalizacion_ip("8.8.8.8")
+
+        self.assertFalse("ciudad" in result)
+        self.assertIn("Respuesta demasiado grande", result["error"])
+        response.read.assert_called_once_with(GEOLOCATION_MAX_RESPONSE + 1)
+        urlopen.assert_called_once()
+
+    def test_geolocation_response_within_limit_is_parsed(self):
+        payload = b'{"status":"success","query":"8.8.8.8"}'
+        response = Mock()
+        response.__enter__ = Mock(return_value=response)
+        response.__exit__ = Mock(return_value=None)
+        response.read.return_value = payload
+        with patch("core.web_service.urllib.request.urlopen", return_value=response):
+            result = geolocalizacion_ip("8.8.8.8")
+
+        self.assertEqual(result["ip"], "8.8.8.8")
+        self.assertEqual(result["pais"], "?")
+
     def test_invalid_ip_is_rejected_without_external_request(self):
         with patch("core.web_service.urllib.request.urlopen") as urlopen:
             result = geolocalizacion_ip("not-an-ip")

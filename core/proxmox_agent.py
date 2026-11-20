@@ -16,6 +16,7 @@ from datetime import datetime
 
 
 PROXMOX_MAX_RESPONSE_BYTES = 8 * 1024 * 1024
+PROXMOX_INVALID_RESPONSE = {"error": "Respuesta inválida de la API de Proxmox."}
 
 
 def _proxmox_ssl_context(host: str) -> ssl.SSLContext:
@@ -64,8 +65,19 @@ def _proxmox_get(host: str, token_id: str, token_secret: str, endpoint: str) -> 
             body = resp.read(PROXMOX_MAX_RESPONSE_BYTES + 1)
         if len(body) > PROXMOX_MAX_RESPONSE_BYTES:
             return {"error": "La respuesta de la API de Proxmox supera el límite permitido."}
-        return json.loads(body.decode())
-    except (urllib.error.URLError, OSError, ValueError, UnicodeError, http.client.HTTPException):
+        data = json.loads(body.decode())
+        # Both consumed endpoints (/nodes and /nodes/{node}/qemu) must return
+        # an object containing a list of resource objects. Reject unexpected
+        # JSON shapes so the UI does not mistake malformed responses for an
+        # empty cluster or crash while iterating them.
+        if (
+            not isinstance(data, dict)
+            or not isinstance(data.get("data"), list)
+            or any(not isinstance(item, dict) for item in data["data"])
+        ):
+            return PROXMOX_INVALID_RESPONSE.copy()
+        return data
+    except (urllib.error.URLError, OSError, ValueError, UnicodeError, RecursionError, http.client.HTTPException):
         # urllib exceptions may embed the private host, endpoint, or response
         # details; keep diagnostics stable and avoid echoing infrastructure data.
         return {"error": "No fue posible consultar la API de Proxmox."}

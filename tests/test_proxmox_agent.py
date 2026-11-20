@@ -8,6 +8,21 @@ from core.proxmox_agent import PROXMOX_MAX_RESPONSE_BYTES
 
 
 class ProxmoxAgentTests(unittest.TestCase):
+    def test_unexpected_json_shapes_are_rejected(self):
+        bodies = (b"[]", b'{"data": {}}', b'{"data": [null]}', b'{"errors": {"message": "denied"}}')
+        for body in bodies:
+            with self.subTest(body=body):
+                response = unittest.mock.MagicMock()
+                response.__enter__.return_value.read.return_value = body
+                with patch.object(
+                    proxmox_agent, "_proxmox_ssl_context", return_value=ssl.create_default_context()
+                ), patch("core.proxmox_agent.urllib.request.urlopen", return_value=response):
+                    result = proxmox_agent._proxmox_get(
+                        "proxmox.example", "root@pam!visor", "secret-token", "/nodes"
+                    )
+
+                self.assertEqual(result, proxmox_agent.PROXMOX_INVALID_RESPONSE)
+
     def test_large_response_is_rejected_with_stable_error(self):
         response = unittest.mock.MagicMock()
         response.__enter__.return_value.read.return_value = b"{" * (PROXMOX_MAX_RESPONSE_BYTES + 1)

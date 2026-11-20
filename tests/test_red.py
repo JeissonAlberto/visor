@@ -1,12 +1,28 @@
+import ipaddress
 import socket
 import subprocess
 import unittest
 from unittest.mock import patch
 
-from core.red import MAX_SCAN_HOSTS, detectar_gateway, escanear_rango, hacer_ping
+from core.red import MAX_SCAN_HOSTS, contar_hosts_escanear, detectar_gateway, escanear_rango, hacer_ping
 
 
 class RangeScanTests(unittest.TestCase):
+    def test_count_matches_usable_hosts_for_ipv4_and_ipv6_boundaries(self):
+        cases = (
+            ("192.0.2.0/24", 254),
+            ("192.0.2.0/31", 2),
+            ("192.0.2.1/32", 1),
+            ("2001:db8::/126", 3),
+            ("2001:db8::/127", 2),
+            ("2001:db8::1/128", 1),
+        )
+        for cidr, expected in cases:
+            with self.subTest(cidr=cidr):
+                network = ipaddress.ip_network(cidr)
+                self.assertEqual(contar_hosts_escanear(network), len(list(network.hosts())))
+                self.assertEqual(contar_hosts_escanear(network), expected)
+
     def test_ping_rejects_option_like_destinations_before_running_command(self):
         for host in ("-f", "/t", "", "   ", None):
             with self.subTest(host=host), patch("core.red.subprocess.run") as run:

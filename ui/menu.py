@@ -279,7 +279,7 @@ def _linea(label, valor, bueno=True):
 
 def _menu_rango():
     import socket
-    from core.red import escanear_rango
+    from core.red import contar_hosts_escanear, escanear_rango
     from core.web_service import geolocalizacion_ip
     from config.device import RANGO_SCAN
 
@@ -307,7 +307,7 @@ def _menu_rango():
     import ipaddress
     try:
         red = ipaddress.ip_network(rango, strict=False)
-        total_ips = red.num_addresses - 2
+        total_ips = contar_hosts_escanear(red)
     except ValueError:
         print(f"\n  {fallo('Rango inválido. Usa formato CIDR, ej: 192.168.1.0/24')}")
         input(f"\n  {dim('Enter para continuar...')}")

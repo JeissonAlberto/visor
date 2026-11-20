@@ -19,6 +19,16 @@ MAX_PING_COUNT = 10
 MAX_PING_TIMEOUT = 60
 
 
+def contar_hosts_escanear(red: ipaddress.IPv4Network | ipaddress.IPv6Network) -> int:
+    """Cuenta las direcciones que ``red.hosts()`` incluirá en el escaneo."""
+    count = red.num_addresses
+    if red.version == 4 and red.prefixlen < 31:
+        return count - 2  # IPv4 reserva red y broadcast en subredes normales.
+    if red.version == 6 and red.prefixlen < 127:
+        return count - 1  # IPv6 excluye la dirección Subnet-Router anycast.
+    return count
+
+
 # ── Ping ──────────────────────────────────────────────────────────────────
 
 def hacer_ping(host: str, count: int = 1, timeout: int = 2) -> tuple[bool, float | None]:
@@ -166,12 +176,9 @@ def escanear_rango(rango: str, max_workers: int = 50) -> list[dict]:
     except ValueError:
         return []
 
-    # Check the size before materializing hosts or creating futures. For IPv4
-    # networks up to /30, network and broadcast addresses are not scannable;
-    # /31, /32 and IPv6 use all addresses returned by ``hosts()``.
-    host_count = red.num_addresses
-    if red.version == 4 and red.prefixlen < 31:
-        host_count -= 2
+    # Check the size before materializing hosts or creating futures. Match
+    # the count to ``red.hosts()`` for both IPv4 and IPv6 boundary networks.
+    host_count = contar_hosts_escanear(red)
     if host_count > MAX_SCAN_HOSTS:
         raise ValueError(
             f"rango demasiado grande: {host_count} hosts (máximo {MAX_SCAN_HOSTS})"

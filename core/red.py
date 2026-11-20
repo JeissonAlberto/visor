@@ -15,6 +15,8 @@ from core.colores import dim
 # Prevent accidental scans from creating millions of subprocesses/futures.
 MAX_SCAN_HOSTS = 4096
 MAX_SCAN_WORKERS = 100
+MAX_PING_COUNT = 10
+MAX_PING_TIMEOUT = 60
 
 
 # ── Ping ──────────────────────────────────────────────────────────────────
@@ -27,6 +29,13 @@ def hacer_ping(host: str, count: int = 1, timeout: int = 2) -> tuple[bool, float
     de configuración se interprete como argumentos adicionales del comando.
     """
     if not isinstance(host, str) or not host.strip():
+        return False, None
+    # Keep caller-controlled parameters from becoming ping flags or creating
+    # unbounded probe duration. Booleans are ints in Python, but are not valid
+    # counts or timeout values here.
+    if type(count) is not int or not 1 <= count <= MAX_PING_COUNT:
+        return False, None
+    if type(timeout) is not int or not 1 <= timeout <= MAX_PING_TIMEOUT:
         return False, None
     host = host.strip()
     if host.startswith(("-", "/")):

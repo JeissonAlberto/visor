@@ -13,6 +13,28 @@ class RangeScanTests(unittest.TestCase):
                 self.assertEqual(hacer_ping(host), (False, None))
             run.assert_not_called()
 
+    def test_ping_rejects_invalid_count_and_timeout_before_running_command(self):
+        invalid_values = (
+            {"count": "-f"}, {"count": 0}, {"count": 11}, {"count": True},
+            {"timeout": "--flood"}, {"timeout": 0}, {"timeout": 61}, {"timeout": False},
+        )
+        for kwargs in invalid_values:
+            with self.subTest(kwargs=kwargs), patch("core.red.subprocess.run") as run:
+                self.assertEqual(hacer_ping("192.0.2.1", **kwargs), (False, None))
+            run.assert_not_called()
+
+    def test_ping_accepts_bounded_integer_count_and_timeout(self):
+        completed = subprocess.CompletedProcess(
+            ["ping"], 0, stdout="64 bytes from 192.0.2.1: time=2 ms TTL=64", stderr=""
+        )
+        with patch("core.red.platform.system", return_value="Linux"), patch(
+            "core.red.subprocess.run", return_value=completed
+        ) as run:
+            self.assertEqual(hacer_ping("192.0.2.1", count=10, timeout=60), (True, 2.0))
+
+        self.assertEqual(run.call_args.args[0], ["ping", "-c", "10", "-W", "60", "192.0.2.1"])
+        self.assertEqual(run.call_args.kwargs["timeout"], 62)
+
     def test_ping_returns_offline_when_system_command_is_unavailable(self):
         with patch("core.red.subprocess.run", side_effect=OSError("missing ping")):
             self.assertEqual(hacer_ping("192.0.2.1"), (False, None))

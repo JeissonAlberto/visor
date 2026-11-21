@@ -1,3 +1,4 @@
+import socket
 import subprocess
 import unittest
 from unittest.mock import patch
@@ -15,6 +16,7 @@ from core.lan_vision import (
 class _FailingSocket:
     def __init__(self):
         self.closed = False
+        self.address = None
 
     def __enter__(self):
         return self
@@ -27,6 +29,7 @@ class _FailingSocket:
         pass
 
     def connect_ex(self, address):
+        self.address = address
         raise OSError("simulated connection failure")
 
 
@@ -36,6 +39,27 @@ class LanVisionTests(unittest.TestCase):
         with patch("core.lan_vision.socket.socket", return_value=sock):
             self.assertEqual(_scan_ports_fast("192.0.2.1", [443]), [])
         self.assertTrue(sock.closed)
+
+    def test_port_probe_uses_ipv6_socket_and_address(self):
+        sock = _FailingSocket()
+        with patch("core.lan_vision.socket.socket", return_value=sock) as socket_factory:
+            self.assertEqual(_scan_ports_fast("2001:db8::1", [443]), [])
+        socket_factory.assert_called_once_with(socket.AF_INET6, socket.SOCK_STREAM)
+        self.assertEqual(sock.address, ("2001:db8::1", 443, 0, 0))
+        self.assertTrue(sock.closed)
+
+    def test_ipv6_network_discovery_returns_hosts_in_address_order(self):
+        with patch("core.lan_vision._ping_host", return_value=True), patch(
+            "core.lan_vision._get_arp_table", return_value={}
+        ), patch("core.lan_vision._resolve_hostname", return_value=""), patch(
+            "core.lan_vision._scan_ports_fast", return_value=[]
+        ):
+            results = discover_lan("2001:db8::/126", scan_ports=True)
+
+        self.assertEqual(
+            [result["ip"] for result in results],
+            ["2001:db8::1", "2001:db8::2", "2001:db8::3"],
+        )
 
     def test_ping_returns_offline_when_system_command_is_unavailable(self):
         with patch("core.lan_vision.subprocess.run", side_effect=OSError("missing ping")):

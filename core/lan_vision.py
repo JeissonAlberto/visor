@@ -156,12 +156,21 @@ def _scan_ports_fast(ip: str, ports: list = None) -> list:
         return []
 
     abiertos = []
+    try:
+        address = ipaddress.ip_address(ip)
+        family = socket.AF_INET6 if address.version == 6 else socket.AF_INET
+        destination = (ip, 0, 0, 0) if family == socket.AF_INET6 else (ip, 0)
+    except ValueError:
+        # Preserve the existing IPv4 socket behavior for hostnames.
+        family = socket.AF_INET
+        destination = (ip, 0)
 
     def check(p):
         try:
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            with socket.socket(family, socket.SOCK_STREAM) as s:
                 s.settimeout(0.5)
-                if s.connect_ex((ip, p)) == 0:
+                sockaddr = (destination[0], p, *destination[2:])
+                if s.connect_ex(sockaddr) == 0:
                     abiertos.append(p)
         except OSError:
             pass
@@ -292,7 +301,6 @@ def discover_lan(rango: str = None, scan_ports: bool = True, callback=None) -> l
         return rec
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=30) as ex:
-        resultados = list(ex.map(enriquecer, sorted(activos_ips,
-                          key=lambda ip: tuple(int(x) for x in ip.split(".")))))
+        resultados = list(ex.map(enriquecer, sorted(activos_ips, key=ipaddress.ip_address)))
 
     return resultados

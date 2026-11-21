@@ -392,13 +392,23 @@ def build_topology(
     for target in targets:
         resolved_target, display_target = _resolve_target(str(target))
         try:
-            hops = trace(str(target)) or []
+            raw_hops = trace(str(target)) or []
         except Exception as exc:
             hops = []
             # El error puede contener destinos, comandos o credenciales.
             trace_error = f"{type(exc).__name__} (detalle omitido)"
         else:
-            trace_error = ""
+            if not isinstance(raw_hops, list):
+                hops = []
+                trace_error = "Respuesta de traceroute inválida; se esperaba una lista de saltos."
+            else:
+                hops = [hop for hop in raw_hops if isinstance(hop, dict)]
+                invalid_hops = len(hops) != len(raw_hops)
+                trace_error = (
+                    "Respuesta de traceroute inválida; se omitieron saltos mal formados."
+                    if invalid_hops else ""
+                )
+        trace_complete = not trace_error
         trace_record = {
             "destino": display_target,
             "ip_destino": resolved_target,
@@ -454,8 +464,8 @@ def build_topology(
                 _add_edge(
                     edges_by_key, observed_hops[-1], target_node, "l3_path",
                     ["traceroute_destino"],
-                    bool(hops and not hops[-1].get("timeout", False)),
-                    "alta" if hops and not hops[-1].get("timeout", False) else "media",
+                    bool(trace_complete and hops and not hops[-1].get("timeout", False)),
+                    "alta" if trace_complete and hops and not hops[-1].get("timeout", False) else "media",
                     "Último salto observado antes del destino.",
                 )
             else:

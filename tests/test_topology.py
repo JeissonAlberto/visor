@@ -163,6 +163,50 @@ class TopologyTests(unittest.TestCase):
     @patch("core.topology.local_wifi_context", return_value={})
     @patch("core.topology.detectar_gateway", return_value="")
     @patch("core.topology._local_ip", return_value="192.168.1.10")
+    def test_malformed_traceroute_hops_are_omitted_and_target_link_stays_unverified(
+        self, _local, _gateway, _wifi
+    ):
+        result = build_topology(
+            trace_targets=["198.51.100.20"],
+            discover_fn=lambda **kwargs: [],
+            traceroute_fn=lambda target: [
+                {"hop": 1, "ip": "203.0.113.1", "timeout": False},
+                None,
+            ],
+            ping_fn=self.ping,
+            wifi_provider=lambda: {},
+        )
+
+        self.assertEqual(len(result["trazas"][0]["saltos"]), 1)
+        self.assertIn("saltos mal formados", result["trazas"][0]["error"])
+        target = next(node for node in result["nodos"] if node["ip"] == "198.51.100.20")
+        target_edges = [
+            edge for edge in result["conexiones"]
+            if target["id"] in (edge["source"], edge["target"])
+            and "l3_path" in edge["relaciones"]
+        ]
+        self.assertEqual(len(target_edges), 1)
+        self.assertFalse(target_edges[0]["verificado"])
+
+    @patch("core.topology.local_wifi_context", return_value={})
+    @patch("core.topology.detectar_gateway", return_value="")
+    @patch("core.topology._local_ip", return_value="192.168.1.10")
+    def test_non_list_traceroute_result_is_reported_without_crashing(self, _local, _gateway, _wifi):
+        result = build_topology(
+            trace_targets=["198.51.100.20"],
+            discover_fn=lambda **kwargs: [],
+            traceroute_fn=lambda target: {"unexpected": "shape"},
+            ping_fn=lambda *args, **kwargs: (False, None),
+            wifi_provider=lambda: {},
+        )
+
+        self.assertEqual(result["trazas"][0]["saltos"], [])
+        self.assertIn("se esperaba una lista", result["trazas"][0]["error"])
+        self.assertIn("198.51.100.20", {node["ip"] for node in result["nodos"]})
+
+    @patch("core.topology.local_wifi_context", return_value={})
+    @patch("core.topology.detectar_gateway", return_value="")
+    @patch("core.topology._local_ip", return_value="192.168.1.10")
     def test_traceroute_error_details_are_redacted(self, _local, _gateway, _wifi):
         def failing_trace(target):
             raise RuntimeError("credential=must-not-appear")

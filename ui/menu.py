@@ -152,6 +152,17 @@ def _escaneo_unico():
     input(f"\n  {dim('Enter para continuar...')}")
 
 
+def _formatear_latencia(valor):
+    """Formatea una latencia válida; métricas ausentes o inválidas se omiten."""
+    import math
+
+    if isinstance(valor, bool) or not isinstance(valor, (int, float)):
+        return None
+    if not math.isfinite(valor) or valor < 0:
+        return None
+    return f"{valor:.0f}ms"
+
+
 # ── 3. Servicios web ──────────────────────────────────────────────────────
 
 def _menu_web():
@@ -182,15 +193,23 @@ def _menu_web():
             lat_red = s.get("lat_red")
             http   = s.get("http", "—")
             
-            # Formato de latencia: [Red -> Web]
-            lat_s = f"{lat_web:.0f}ms" if lat_web else "—"
-            if lat_red:
-                lat_s = f"{lat_red:.0f}ms -> {lat_web:.0f}ms"
-            
-            color_web = ok if lat_web and lat_web < 400 else warn
+            # Las sondas pueden devolver None si no lograron medir una capa.
+            lat_web_s = _formatear_latencia(lat_web)
+            lat_red_s = _formatear_latencia(lat_red)
+            if lat_red_s and lat_web_s:
+                lat_s = f"{lat_red_s} -> {lat_web_s}"
+            elif lat_red_s:
+                lat_s = f"Red {lat_red_s}"
+            elif lat_web_s:
+                lat_s = f"Web {lat_web_s}"
+            else:
+                lat_s = "—"
+
+            color_web = ok if lat_web_s is not None and lat_web < 400 else warn
             estado = ok("  UP  ") if online else fallo(" DOWN ")
-            
-            print(f"  {nombre:<{ancho}} [{estado}]  HTTP {http:<4}  {color_web(lat_s)}")
+            http_s = str(http) if http is not None else "—"
+
+            print(f"  {nombre:<{ancho}} [{estado}]  HTTP {http_s:<4}  {color_web(lat_s)}")
 
     separador()
     print(f"  TOTAL:  {ok(str(total_up) + '/' + str(total_tot) + ' servicios activos') if total_up == total_tot else warn(str(total_up) + '/' + str(total_tot) + ' servicios activos')}")

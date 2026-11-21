@@ -5,6 +5,7 @@ Usa la API REST de Proxmox (puerto 8006).
 """
 
 import json
+import math
 import os
 import socket
 import urllib.request
@@ -17,6 +18,24 @@ from datetime import datetime
 
 PROXMOX_MAX_RESPONSE_BYTES = 8 * 1024 * 1024
 PROXMOX_INVALID_RESPONSE = {"error": "Respuesta inválida de la API de Proxmox."}
+
+
+def _api_number(resource: dict, key: str, maximum: float | None = None) -> int | float:
+    """Valida los campos numéricos usados para calcular telemetría."""
+    value = resource.get(key, 0)
+    numeric = type(value) in (int, float)
+    try:
+        finite = numeric and math.isfinite(value)
+    except OverflowError:
+        finite = False
+    if (
+        not numeric
+        or not finite
+        or value < 0
+        or (maximum is not None and value > maximum)
+    ):
+        raise ValueError("invalid Proxmox metric")
+    return value
 
 
 def _proxmox_ssl_context(host: str) -> ssl.SSLContext:
@@ -108,25 +127,29 @@ def get_nodes_status(host: str, token_id: str = "root@pam!visor", token_secret: 
         return [{"error": raw["error"]}]
 
     nodes = []
-    for node in raw.get("data", []):
-        cpu_pct = round(node.get("cpu", 0) * 100, 1)
-        mem_total = node.get("maxmem", 0)
-        mem_used  = node.get("mem", 0)
-        disk_total = node.get("maxdisk", 0)
-        disk_used  = node.get("disk", 0)
+    try:
+        for node in raw.get("data", []):
+            cpu_pct = round(_api_number(node, "cpu", maximum=1) * 100, 1)
+            mem_total = _api_number(node, "maxmem")
+            mem_used = _api_number(node, "mem")
+            disk_total = _api_number(node, "maxdisk")
+            disk_used = _api_number(node, "disk")
+            uptime = _api_number(node, "uptime")
 
-        nodes.append({
-            "node":       node.get("node", "—"),
-            "status":     node.get("status", "—"),
-            "cpu_pct":    cpu_pct,
-            "mem_used_gb":  round(mem_used  / 1024**3, 1) if mem_total else 0,
-            "mem_total_gb": round(mem_total / 1024**3, 1) if mem_total else 0,
-            "mem_pct":    round(mem_used / mem_total * 100, 1) if mem_total else 0,
-            "disk_used_gb":  round(disk_used  / 1024**3, 1) if disk_total else 0,
-            "disk_total_gb": round(disk_total / 1024**3, 1) if disk_total else 0,
-            "uptime_h":   round(node.get("uptime", 0) / 3600, 1),
-            "ts":         datetime.now().isoformat(timespec="seconds"),
-        })
+            nodes.append({
+                "node":       node.get("node", "—"),
+                "status":     node.get("status", "—"),
+                "cpu_pct":    cpu_pct,
+                "mem_used_gb":  round(mem_used / 1024**3, 1) if mem_total else 0,
+                "mem_total_gb": round(mem_total / 1024**3, 1) if mem_total else 0,
+                "mem_pct":    round(mem_used / mem_total * 100, 1) if mem_total else 0,
+                "disk_used_gb":  round(disk_used / 1024**3, 1) if disk_total else 0,
+                "disk_total_gb": round(disk_total / 1024**3, 1) if disk_total else 0,
+                "uptime_h":   round(uptime / 3600, 1),
+                "ts":         datetime.now().isoformat(timespec="seconds"),
+            })
+    except ValueError:
+        return [PROXMOX_INVALID_RESPONSE.copy()]
     return nodes
 
 def get_vms_status(host: str, node: str, token_id: str = "root@pam!visor", token_secret: str = "") -> list:
@@ -136,13 +159,19 @@ def get_vms_status(host: str, node: str, token_id: str = "root@pam!visor", token
         return [{"error": raw["error"]}]
 
     vms = []
-    for vm in raw.get("data", []):
-        vms.append({
-            "vmid":    vm.get("vmid"),
-            "name":    vm.get("name", "—"),
-            "status":  vm.get("status", "—"),
-            "cpu_pct": round(vm.get("cpu", 0) * 100, 1),
-            "mem_mb":  round(vm.get("mem", 0) / 1024**2, 1),
-            "uptime_h": round(vm.get("uptime", 0) / 3600, 1),
-        })
+    try:
+        for vm in raw.get("data", []):
+            cpu_pct = round(_api_number(vm, "cpu", maximum=1) * 100, 1)
+            mem = _api_number(vm, "mem")
+            uptime = _api_number(vm, "uptime")
+            vms.append({
+                "vmid":    vm.get("vmid"),
+                "name":    vm.get("name", "—"),
+                "status":  vm.get("status", "—"),
+                "cpu_pct": cpu_pct,
+                "mem_mb":  round(mem / 1024**2, 1),
+                "uptime_h": round(uptime / 3600, 1),
+            })
+    except ValueError:
+        return [PROXMOX_INVALID_RESPONSE.copy()]
     return vms

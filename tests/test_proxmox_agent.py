@@ -107,6 +107,59 @@ class ProxmoxAgentTests(unittest.TestCase):
         self.assertNotIn("secret-host", str(result))
         self.assertNotIn("secret-token", str(result))
 
+    def test_node_metrics_reject_invalid_numeric_values_without_crashing(self):
+        invalid_nodes = (
+            {"cpu": "unknown"},
+            {"mem": None},
+            {"uptime": float("nan")},
+            {"cpu": 1.1},
+            {"disk": -1},
+            {"mem": 10**1000},
+        )
+        for invalid in invalid_nodes:
+            with self.subTest(invalid=invalid):
+                node = {"cpu": 0.25, "maxmem": 8, "mem": 4, "maxdisk": 16,
+                        "disk": 8, "uptime": 3600, **invalid}
+                with patch.object(proxmox_agent, "ping_proxmox", return_value=True), patch.object(
+                    proxmox_agent, "_proxmox_get", return_value={"data": [node]}
+                ):
+                    self.assertEqual(
+                        proxmox_agent.get_nodes_status("proxmox.example"),
+                        [proxmox_agent.PROXMOX_INVALID_RESPONSE],
+                    )
+
+    def test_vm_metrics_reject_invalid_numeric_values_without_crashing(self):
+        for invalid in ({"mem": "large"}, {"uptime": True}, {"cpu": float("inf")}):
+            with self.subTest(invalid=invalid), patch.object(
+                proxmox_agent, "_proxmox_get", return_value={"data": [{
+                    "cpu": 0.5, "mem": 1024, "uptime": 7200, **invalid
+                }]}
+            ):
+                self.assertEqual(
+                    proxmox_agent.get_vms_status("proxmox.example", "node1"),
+                    [proxmox_agent.PROXMOX_INVALID_RESPONSE],
+                )
+
+    def test_valid_node_and_vm_metrics_keep_existing_output_units(self):
+        node = {"node": "node1", "status": "online", "cpu": 0.5,
+                "maxmem": 2 * 1024**3, "mem": 1024**3,
+                "maxdisk": 4 * 1024**3, "disk": 2 * 1024**3, "uptime": 7200}
+        vm = {"vmid": 100, "name": "vm1", "status": "running",
+              "cpu": 0.25, "mem": 512 * 1024**2, "uptime": 3600}
+        with patch.object(proxmox_agent, "ping_proxmox", return_value=True), patch.object(
+            proxmox_agent, "_proxmox_get", return_value={"data": [node]}
+        ):
+            node_result = proxmox_agent.get_nodes_status("proxmox.example")
+        with patch.object(proxmox_agent, "_proxmox_get", return_value={"data": [vm]}):
+            vm_result = proxmox_agent.get_vms_status("proxmox.example", "node1")
+
+        self.assertEqual(node_result[0]["cpu_pct"], 50.0)
+        self.assertEqual(node_result[0]["mem_pct"], 50.0)
+        self.assertEqual(node_result[0]["uptime_h"], 2.0)
+        self.assertEqual(vm_result[0]["cpu_pct"], 25.0)
+        self.assertEqual(vm_result[0]["mem_mb"], 512.0)
+        self.assertEqual(vm_result[0]["uptime_h"], 1.0)
+
     def test_node_query_preserves_redacted_api_failure(self):
         with (
             patch.object(proxmox_agent, "ping_proxmox", return_value=True),

@@ -165,9 +165,11 @@ def _medir_subida(duracion_max: float = 10.0) -> tuple[float | None, str]:
                 }
             )
             t0 = time.perf_counter()
-            with urllib.request.urlopen(req, context=ctx, timeout=15) as resp:
-                resp.read()
-            elapsed = time.perf_counter() - t0
+            # urlopen returns after the response headers arrive, once the
+            # request body has been sent; do not include response-body time in
+            # the upload throughput measurement.
+            with urllib.request.urlopen(req, context=ctx, timeout=15):
+                elapsed = time.perf_counter() - t0
 
             if elapsed > 0.2:
                 mbps = round((len(datos) * 8) / elapsed / 1_000_000, 2)

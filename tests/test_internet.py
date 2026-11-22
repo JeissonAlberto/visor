@@ -3,10 +3,32 @@ import ssl
 import unittest
 from unittest.mock import patch
 
-from core.test_internet import _medir_throughput_tcp, _ping_latencias, _ssl_ctx
+from core.test_internet import _medir_subida, _medir_throughput_tcp, _ping_latencias, _ssl_ctx
 
 
 class InternetSecurityTests(unittest.TestCase):
+    def test_upload_throughput_does_not_read_or_time_response_body(self):
+        class Response:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+            def read(self, *_args, **_kwargs):
+                raise AssertionError("response body should not affect upload timing")
+
+        with (
+            patch("core.test_internet._UPLOAD_ENDPOINTS", [("test", "https://example.test", "POST", 2)]),
+            patch("core.test_internet._ssl_ctx"),
+            patch("core.test_internet.urllib.request.urlopen", return_value=Response()),
+            patch("core.test_internet.time.perf_counter", side_effect=[10.0, 11.0]),
+        ):
+            mbps, source = _medir_subida()
+
+        self.assertEqual(mbps, 0.0)  # 2 bytes over 1 second, rounded to 2 decimals
+        self.assertEqual(source, "test")
+
     def test_speed_test_context_verifies_certificates_and_hostnames(self):
         context = _ssl_ctx()
         self.assertTrue(context.check_hostname)

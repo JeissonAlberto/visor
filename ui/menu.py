@@ -4,12 +4,30 @@ Jasol Group · Ing. Jeisson Alberto Sarmiento · Saravena, Arauca, Colombia
 """
 
 from datetime import datetime
+import ipaddress
 import sqlite3
+import urllib.request
+
 from core.colores import (
     banner, separador, titulo, info, ok, fallo, warn,
     dim, resaltar, azul, naranja, tabla_estado, firma
 )
 from config.settings import INTERVALO_MONITOREO, VERSION, AUTOR, ORGANIZATION, UBICACION
+
+
+_PUBLIC_IP_RESPONSE_LIMIT = 64
+
+
+def _obtener_ip_publica() -> str:
+    """Obtiene una IP pública validada, limitando la respuesta HTTP leída."""
+    with urllib.request.urlopen("https://api.ipify.org", timeout=5) as response:
+        body = response.read(_PUBLIC_IP_RESPONSE_LIMIT + 1)
+    if len(body) > _PUBLIC_IP_RESPONSE_LIMIT:
+        raise ValueError("Respuesta demasiado grande del proveedor de IP pública")
+    address = ipaddress.ip_address(body.decode("ascii").strip())
+    if not address.is_global:
+        raise ValueError("El proveedor no devolvió una IP pública enrutable")
+    return str(address)
 
 
 # ── Menú principal ────────────────────────────────────────────────────────
@@ -419,8 +437,7 @@ def _info_interfaces():
     print(f"  {resaltar('IP local:')}         {ip_local or '—'}")
 
     try:
-        ip_pub_req = __import__("urllib.request", fromlist=["urlopen"]).urlopen(
-            "https://api.ipify.org", timeout=5).read().decode()
+        ip_pub_req = _obtener_ip_publica()
         print(f"  {resaltar('IP pública:')}       {ip_pub_req}")
     except (OSError, UnicodeError, ValueError):
         print(f"  {resaltar('IP pública:')}       {warn('No disponible')}")
@@ -457,8 +474,7 @@ def _geolocalizacion_manual():
 
     if not ip_input:
         try:
-            import urllib.request
-            ip_input = urllib.request.urlopen("https://api.ipify.org", timeout=5).read().decode()
+            ip_input = _obtener_ip_publica()
             print(f"  {dim('Tu IP pública: ' + ip_input)}")
         except (OSError, UnicodeError, ValueError):
             print(f"  {fallo('No se pudo obtener la IP pública.')}")

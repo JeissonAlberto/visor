@@ -10,6 +10,7 @@ import re
 import http.client
 import statistics
 import time
+import math
 import urllib.request
 import urllib.error
 import socket
@@ -133,15 +134,43 @@ def _medir_con_speedtest() -> tuple[float | None, float | None, str]:
             [exe, "--json", "--timeout", "30"],
             capture_output=True, text=True, timeout=60
         )
-        if r.returncode != 0:
-            return None, None, "speedtest error"
-        data  = _json.loads(r.stdout)
-        dl    = round(data["download"] / 1_000_000, 2)
-        ul    = round(data["upload"]   / 1_000_000, 2)
-        server = data.get("server", {}).get("name", "Speedtest.net")
-        return dl, ul, server
-    except (OSError, subprocess.SubprocessError, ValueError, KeyError, TypeError) as e:
-        return None, None, str(e)
+    except (OSError, subprocess.SubprocessError):
+        return None, None, "No se pudo ejecutar speedtest-cli"
+
+    if r.returncode != 0:
+        return None, None, "speedtest error"
+
+    try:
+        data = _json.loads(r.stdout)
+    except (ValueError, TypeError):
+        return None, None, "Respuesta inválida de speedtest-cli"
+
+    if not isinstance(data, dict):
+        return None, None, "Respuesta inválida de speedtest-cli"
+
+    def metric_is_valid(value):
+        if type(value) not in (int, float):
+            return False
+        try:
+            return value >= 0 and math.isfinite(value)
+        except OverflowError:
+            return False
+
+    download = data.get("download")
+    upload = data.get("upload")
+    if not metric_is_valid(download) or not metric_is_valid(upload):
+        return None, None, "Respuesta inválida de speedtest-cli"
+
+    server = data.get("server")
+    name = server.get("name") if isinstance(server, dict) else None
+    if isinstance(name, str):
+        name = "".join(char for char in name if char.isprintable())[:100].strip()
+    else:
+        name = ""
+    if not name:
+        name = "Speedtest.net"
+
+    return round(download / 1_000_000, 2), round(upload / 1_000_000, 2), name
 
 
 def _medir_subida(duracion_max: float = 10.0) -> tuple[float | None, str]:

@@ -1,9 +1,13 @@
 import inspect
 import ssl
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
-from core.test_internet import _medir_subida, _medir_throughput_tcp, _ping_latencias, _ssl_ctx
+from core.test_internet import (
+    _medir_con_speedtest, _medir_subida, _medir_throughput_tcp,
+    _ping_latencias, _ssl_ctx,
+)
 
 
 class InternetSecurityTests(unittest.TestCase):
@@ -33,6 +37,45 @@ class InternetSecurityTests(unittest.TestCase):
         context = _ssl_ctx()
         self.assertTrue(context.check_hostname)
         self.assertEqual(context.verify_mode, ssl.CERT_REQUIRED)
+
+    def test_speedtest_parses_finite_nonnegative_metrics(self):
+        result = SimpleNamespace(
+            returncode=0,
+            stdout='{"download": 12500000, "upload": 2500000, "server": {"name": "NOC test"}}',
+        )
+        with patch("shutil.which", side_effect=lambda name: "/usr/bin/speedtest" if name == "speedtest" else None), patch(
+            "subprocess.run", return_value=result
+        ):
+            self.assertEqual(_medir_con_speedtest(), (12.5, 2.5, "NOC test"))
+
+    def test_speedtest_rejects_invalid_metrics(self):
+        payloads = (
+            '{"download": NaN, "upload": 1}',
+            '{"download": -1, "upload": 1}',
+            '{"download": true, "upload": 1}',
+        )
+        for payload in payloads:
+            with self.subTest(payload=payload), patch(
+                "shutil.which", side_effect=lambda name: "/usr/bin/speedtest" if name == "speedtest" else None
+            ), patch("subprocess.run", return_value=SimpleNamespace(returncode=0, stdout=payload)):
+                self.assertEqual(_medir_con_speedtest(), (None, None, "Respuesta inválida de speedtest-cli"))
+
+    def test_speedtest_uses_safe_default_for_malformed_optional_server(self):
+        payload = '{"download": 1000000, "upload": 500000, "server": null}'
+        with patch(
+            "shutil.which", side_effect=lambda name: "/usr/bin/speedtest" if name == "speedtest" else None
+        ), patch("subprocess.run", return_value=SimpleNamespace(returncode=0, stdout=payload)):
+            self.assertEqual(_medir_con_speedtest(), (1.0, 0.5, "Speedtest.net"))
+
+    def test_speedtest_failure_does_not_echo_exception_details(self):
+        secret_detail = "token=do-not-display"
+        with patch("shutil.which", side_effect=lambda name: "/usr/bin/speedtest" if name == "speedtest" else None), patch(
+            "subprocess.run", side_effect=OSError(secret_detail)
+        ):
+            result = _medir_con_speedtest()
+
+        self.assertEqual(result, (None, None, "No se pudo ejecutar speedtest-cli"))
+        self.assertNotIn(secret_detail, repr(result))
 
     def test_unexpected_ping_failure_is_not_hidden(self):
         with patch("core.test_internet.subprocess.run", side_effect=RuntimeError("unexpected test failure")):

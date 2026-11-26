@@ -367,6 +367,12 @@ def geolocalizacion_ip(ip: str) -> dict:
                 "error": "Respuesta demasiado grande del proveedor de geolocalización",
             }
         data = json.loads(body.decode())
+        if not isinstance(data, dict):
+            return {
+                "ip": ip,
+                "privada": False,
+                "error": "Respuesta inválida del proveedor de geolocalización",
+            }
         if data.get("status") == "success":
             return {
                 "ip":          data.get("query", ip),

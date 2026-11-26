@@ -46,6 +46,33 @@ class WebServiceTests(unittest.TestCase):
         self.assertEqual(result, {"ip": "not-an-ip", "privada": False, "error": "IP inválida"})
         urlopen.assert_not_called()
 
+    def test_geolocation_rejects_non_object_json_provider_responses(self):
+        for payload in (b"null", b"[]", b'"unexpected"'):
+            with self.subTest(payload=payload):
+                response = Mock()
+                response.__enter__ = Mock(return_value=response)
+                response.__exit__ = Mock(return_value=None)
+                response.read.return_value = payload
+                with patch("core.web_service.urllib.request.urlopen", return_value=response):
+                    result = geolocalizacion_ip("8.8.8.8")
+
+                self.assertEqual(result, {
+                    "ip": "8.8.8.8",
+                    "privada": False,
+                    "error": "Respuesta inválida del proveedor de geolocalización",
+                })
+
+    def test_geolocation_rejects_json_number_provider_responses(self):
+        response = Mock()
+        response.__enter__ = Mock(return_value=response)
+        response.__exit__ = Mock(return_value=None)
+        response.read.return_value = b"42"
+        with patch("core.web_service.urllib.request.urlopen", return_value=response):
+            result = geolocalizacion_ip("8.8.8.8")
+
+        self.assertEqual(result["error"], "Respuesta inválida del proveedor de geolocalización")
+        self.assertEqual(result["ip"], "8.8.8.8")
+
     def test_non_global_ipv6_is_not_sent_to_geolocation_provider(self):
         with patch("core.web_service.urllib.request.urlopen") as urlopen:
             result = geolocalizacion_ip("fd00::1")

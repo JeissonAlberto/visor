@@ -142,6 +142,17 @@ SERVICIOS_WEB = [
 RANGO_SCAN = "192.168.1.0/24"
 ```
 
+### Geolocalización de IP públicas (`ip-api.com`)
+
+La geolocalización manual y la que se muestra al escanear rangos consulta `ip-api.com` y
+envía al proveedor las IP públicas consultadas. El endpoint JSON gratuito usa HTTP sin TLS,
+por lo que la solicitud y la respuesta pueden ser observadas o modificadas en tránsito;
+los resultados son orientativos y no deben usarse como evidencia operativa concluyente.
+Además, la documentación oficial del proveedor indica que el endpoint gratuito no permite
+uso comercial. No lo uses en despliegues comerciales o de producción; para ese escenario
+se requiere un servicio cuyo plan y términos autoricen expresamente ese uso. Visor no
+configura ni activa proveedores alternativos.
+
 ### API de Proxmox y TLS
 
 La conexión a Proxmox valida por defecto los certificados contra la CA del sistema.

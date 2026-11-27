@@ -338,8 +338,8 @@ GEOLOCATION_MAX_RESPONSE = 65536
 
 def geolocalizacion_ip(ip: str) -> dict:
     """
-    Geolocaliza una IP usando ip-api.com (gratuito, sin clave).
-    Devuelve dict con país, ciudad, ISP, lat/lon, etc.
+    Consulta ip-api.com (endpoint gratuito, sin TLS y solo para uso no comercial).
+    Devuelve dict con país, ciudad, ISP, lat/lon, etc.; el resultado es orientativo.
     """
     # Valida la entrada antes de construir la URL externa. Además de evitar
     # errores con valores incompletos, esto impide enviar texto arbitrario al

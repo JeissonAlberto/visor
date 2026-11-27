@@ -390,8 +390,14 @@ def geolocalizacion_ip(ip: str) -> dict:
             }
         else:
             return {"ip": ip, "privada": False, "error": data.get("message", "Sin datos")}
-    except (urllib.error.URLError, OSError, ValueError) as e:
-        return {"ip": ip, "privada": False, "error": str(e)[:80]}
+    except urllib.error.HTTPError as e:
+        # Keep the provider's status useful without echoing its URL or reason.
+        return {"ip": ip, "privada": False, "error": f"El proveedor devolvió HTTP {e.code}"}
+    except (urllib.error.URLError, OSError, http.client.HTTPException):
+        # Exception text may include the requested IP or remote response details.
+        return {"ip": ip, "privada": False, "error": "No fue posible consultar el proveedor de geolocalización"}
+    except (ValueError, RecursionError):
+        return {"ip": ip, "privada": False, "error": "Respuesta inválida del proveedor de geolocalización"}
 
 
 def geolocalizacion_rango(ips: list) -> list:

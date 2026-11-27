@@ -73,6 +73,36 @@ class WebServiceTests(unittest.TestCase):
         self.assertEqual(result["error"], "Respuesta inválida del proveedor de geolocalización")
         self.assertEqual(result["ip"], "8.8.8.8")
 
+    def test_geolocation_provider_errors_do_not_echo_urls_or_remote_details(self):
+        secret = "query=203.0.113.8&token=do-not-leak"
+        cases = (
+            (URLError(secret), "No fue posible consultar el proveedor de geolocalización"),
+            (HTTPError(
+                "http://ip-api.com/json/203.0.113.8?" + secret,
+                429, "remote reason: " + secret, hdrs=None, fp=None,
+            ), "El proveedor devolvió HTTP 429"),
+        )
+        for error, expected in cases:
+            with self.subTest(error=type(error).__name__), patch(
+                "core.web_service.urllib.request.urlopen", side_effect=error
+            ):
+                result = geolocalizacion_ip("8.8.8.8")
+
+            self.assertEqual(result["error"], expected)
+            self.assertNotIn(secret, repr(result))
+
+    def test_geolocation_invalid_json_returns_stable_error(self):
+        response = Mock()
+        response.__enter__ = Mock(return_value=response)
+        response.__exit__ = Mock(return_value=None)
+        response.read.return_value = b'{"malformed":'
+        with patch("core.web_service.urllib.request.urlopen", return_value=response):
+            result = geolocalizacion_ip("8.8.8.8")
+
+        self.assertEqual(
+            result["error"], "Respuesta inválida del proveedor de geolocalización"
+        )
+
     def test_non_global_ipv6_is_not_sent_to_geolocation_provider(self):
         with patch("core.web_service.urllib.request.urlopen") as urlopen:
             result = geolocalizacion_ip("fd00::1")

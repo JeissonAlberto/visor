@@ -50,6 +50,22 @@ class WebServiceTests(unittest.TestCase):
         self.assertEqual(second["ip"], "8.8.8.8")
         sleep.assert_called_once_with(30.0)
 
+    def test_geolocation_cooldown_is_bounded_to_provider_rate_window(self):
+        original_blocked_until = web_service._GEOLOCATION_BLOCKED_UNTIL
+        self.addCleanup(
+            setattr, web_service, "_GEOLOCATION_BLOCKED_UNTIL", original_blocked_until
+        )
+        web_service._GEOLOCATION_BLOCKED_UNTIL = 0.0
+        with patch("core.web_service.time.monotonic", return_value=10.0):
+            web_service._record_geolocation_rate_limit(
+                {"X-Rl": "0", "X-Ttl": "1e300"}
+            )
+
+        self.assertEqual(
+            web_service._GEOLOCATION_BLOCKED_UNTIL,
+            10.0 + web_service.GEOLOCATION_MAX_COOLDOWN_SECONDS,
+        )
+
     def test_geolocation_429_headers_set_provider_cooldown(self):
         original_blocked_until = web_service._GEOLOCATION_BLOCKED_UNTIL
         self.addCleanup(

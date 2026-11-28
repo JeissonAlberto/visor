@@ -335,6 +335,9 @@ def escanear_por_categorias() -> dict:
 # ── Geolocalización de IP ─────────────────────────────────────────────────
 
 GEOLOCATION_MAX_RESPONSE = 65536
+# The provider documents a per-minute quota; reject longer cooldown claims so
+# malformed headers cannot stall the CLI indefinitely or overflow time.sleep().
+GEOLOCATION_MAX_COOLDOWN_SECONDS = 60.0
 _GEOLOCATION_RATE_LOCK = threading.Lock()
 _GEOLOCATION_BLOCKED_UNTIL = 0.0
 
@@ -351,6 +354,7 @@ def _record_geolocation_rate_limit(headers) -> None:
         return
     if remaining != 0 or not math.isfinite(ttl) or ttl <= 0:
         return
+    ttl = min(ttl, GEOLOCATION_MAX_COOLDOWN_SECONDS)
     _GEOLOCATION_BLOCKED_UNTIL = max(
         _GEOLOCATION_BLOCKED_UNTIL, time.monotonic() + ttl
     )

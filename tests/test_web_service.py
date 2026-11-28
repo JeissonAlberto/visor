@@ -27,6 +27,47 @@ class WebServiceTests(unittest.TestCase):
         response.read.assert_called_once_with(GEOLOCATION_MAX_RESPONSE + 1)
         urlopen.assert_called_once()
 
+    def test_geolocation_waits_for_provider_cooldown_when_quota_is_exhausted(self):
+        original_blocked_until = web_service._GEOLOCATION_BLOCKED_UNTIL
+        self.addCleanup(
+            setattr, web_service, "_GEOLOCATION_BLOCKED_UNTIL", original_blocked_until
+        )
+        web_service._GEOLOCATION_BLOCKED_UNTIL = 0.0
+        response = Mock()
+        response.__enter__ = Mock(return_value=response)
+        response.__exit__ = Mock(return_value=None)
+        response.read.return_value = b'{"status":"success","query":"8.8.8.8"}'
+        response.headers = {"X-Rl": "0", "X-Ttl": "30"}
+        with patch("core.web_service.time.monotonic", return_value=100.0), patch(
+            "core.web_service.time.sleep"
+        ) as sleep, patch(
+            "core.web_service.urllib.request.urlopen", return_value=response
+        ):
+            first = geolocalizacion_ip("8.8.8.8")
+            second = geolocalizacion_ip("1.1.1.1")
+
+        self.assertEqual(first["pais"], "?")
+        self.assertEqual(second["ip"], "8.8.8.8")
+        sleep.assert_called_once_with(30.0)
+
+    def test_geolocation_429_headers_set_provider_cooldown(self):
+        original_blocked_until = web_service._GEOLOCATION_BLOCKED_UNTIL
+        self.addCleanup(
+            setattr, web_service, "_GEOLOCATION_BLOCKED_UNTIL", original_blocked_until
+        )
+        web_service._GEOLOCATION_BLOCKED_UNTIL = 0.0
+        error = HTTPError(
+            "http://ip-api.com/json/8.8.8.8", 429, "Too Many Requests",
+            hdrs={"X-Rl": "0", "X-Ttl": "12"}, fp=None,
+        )
+        with patch("core.web_service.time.monotonic", return_value=50.0), patch(
+            "core.web_service.urllib.request.urlopen", side_effect=error
+        ):
+            result = geolocalizacion_ip("8.8.8.8")
+
+        self.assertEqual(result["error"], "El proveedor devolvió HTTP 429")
+        self.assertEqual(web_service._GEOLOCATION_BLOCKED_UNTIL, 62.0)
+
     def test_geolocation_response_within_limit_is_parsed(self):
         payload = b'{"status":"success","query":"8.8.8.8"}'
         response = Mock()

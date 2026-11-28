@@ -11,6 +11,7 @@ import time
 import json
 import ipaddress
 import math
+import threading
 from urllib.parse import urlsplit
 from config.device import SERVICIOS_WEB
 
@@ -334,6 +335,25 @@ def escanear_por_categorias() -> dict:
 # ── Geolocalización de IP ─────────────────────────────────────────────────
 
 GEOLOCATION_MAX_RESPONSE = 65536
+_GEOLOCATION_RATE_LOCK = threading.Lock()
+_GEOLOCATION_BLOCKED_UNTIL = 0.0
+
+
+def _record_geolocation_rate_limit(headers) -> None:
+    """Remember the provider's cooldown when its quota is exhausted."""
+    global _GEOLOCATION_BLOCKED_UNTIL
+    if headers is None or not hasattr(headers, "get"):
+        return
+    try:
+        remaining = int(headers.get("X-Rl"))
+        ttl = float(headers.get("X-Ttl"))
+    except (TypeError, ValueError, OverflowError):
+        return
+    if remaining != 0 or not math.isfinite(ttl) or ttl <= 0:
+        return
+    _GEOLOCATION_BLOCKED_UNTIL = max(
+        _GEOLOCATION_BLOCKED_UNTIL, time.monotonic() + ttl
+    )
 
 
 def geolocalizacion_ip(ip: str) -> dict:
@@ -358,8 +378,14 @@ def geolocalizacion_ip(ip: str) -> dict:
     try:
         url = "http://ip-api.com/json/" + ip + "?fields=status,message,country,countryCode,regionName,city,zip,lat,lon,isp,org,as,query&lang=es"
         req = urllib.request.Request(url, headers={"User-Agent": "Visor-NOC/2.0"})
-        with urllib.request.urlopen(req, timeout=6) as resp:
-            body = resp.read(GEOLOCATION_MAX_RESPONSE + 1)
+        global _GEOLOCATION_BLOCKED_UNTIL
+        with _GEOLOCATION_RATE_LOCK:
+            delay = _GEOLOCATION_BLOCKED_UNTIL - time.monotonic()
+            if delay > 0:
+                time.sleep(delay)
+            with urllib.request.urlopen(req, timeout=6) as resp:
+                body = resp.read(GEOLOCATION_MAX_RESPONSE + 1)
+                _record_geolocation_rate_limit(getattr(resp, "headers", None))
         if len(body) > GEOLOCATION_MAX_RESPONSE:
             return {
                 "ip": ip,
@@ -392,6 +418,8 @@ def geolocalizacion_ip(ip: str) -> dict:
             return {"ip": ip, "privada": False, "error": data.get("message", "Sin datos")}
     except urllib.error.HTTPError as e:
         # Keep the provider's status useful without echoing its URL or reason.
+        with _GEOLOCATION_RATE_LOCK:
+            _record_geolocation_rate_limit(getattr(e, "headers", None))
         return {"ip": ip, "privada": False, "error": f"El proveedor devolvió HTTP {e.code}"}
     except (urllib.error.URLError, OSError, http.client.HTTPException):
         # Exception text may include the requested IP or remote response details.
@@ -401,13 +429,5 @@ def geolocalizacion_ip(ip: str) -> dict:
 
 
 def geolocalizacion_rango(ips: list) -> list:
-    """
-    Geolocaliza una lista de IPs. Respeta el límite de ip-api.com (45 req/min).
-    """
-    import time
-    resultados = []
-    for i, ip in enumerate(ips):
-        if i > 0 and i % 40 == 0:
-            time.sleep(1.5)   # respetar rate limit
-        resultados.append(geolocalizacion_ip(ip))
-    return resultados
+    """Geolocaliza una lista de IPs y respeta la cuota indicada por el proveedor."""
+    return [geolocalizacion_ip(ip) for ip in ips]
